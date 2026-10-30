@@ -220,6 +220,25 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .hist .graf-barras { width: 100%; max-width: 26rem; height: auto; display: block; margin: .3rem 0; }
 .graf-barras .b-ant { fill: var(--c-texto-3); } .graf-barras .b-atual { fill: var(--c-magenta); } .graf-barras .b-rot { fill: var(--c-texto-2); font-size: 10px; font-weight: 700; }
 .tab-hist { width: 100%; border-collapse: collapse; font-size: .7rem; margin: .4rem 0; }
+/* telas estreitas: a tabela rola só dentro dela, nunca a página */
+.tab-hist { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tab-hist td, .tab-hist th { white-space: nowrap; }
+/* comparação por categoria (Cartões): em tela estreita vira cartões empilhados */
+@media (max-width: 40rem) {
+  .tab-cmp { display: block; overflow: visible; }
+  .tab-cmp thead { display: none; }
+  .tab-cmp caption { display: block; }
+  .tab-cmp tbody { display: block; }
+  .tab-cmp tr { display: grid; grid-template-columns: 1fr 1fr auto; gap: .1rem .5rem; padding: .4rem 0; border-bottom: 1px solid var(--c-linha); align-items: end; }
+  .tab-cmp th, .tab-cmp td { border: 0; padding: 0; white-space: normal; }
+  .tab-cmp tbody th { grid-column: 1 / -1; font-weight: 800; }
+  .tab-cmp td:nth-of-type(1)::before { content: 'Antes'; } .tab-cmp td:nth-of-type(2)::before { content: 'Agora'; }
+  .tab-cmp td:nth-of-type(1)::before, .tab-cmp td:nth-of-type(2)::before { display: block; font-size: .56rem; text-transform: uppercase; color: var(--c-texto-2); }
+  .tab-cmp td:nth-of-type(3) { grid-column: 1 / 3; }
+  .tab-cmp td:nth-of-type(4) { grid-column: 3; grid-row: 2 / 4; align-self: center; }
+}
+.cartoes > *, .cartoes .cartao, .tela > *, .cartao { min-width: 0; }
+.graf-barras { max-width: 100%; }
 .tab-hist caption { text-align: left; font-weight: 800; padding: .2rem 0; color: var(--c-texto-2); }
 .tab-hist th, .tab-hist td { padding: .2rem .35rem; text-align: left; border-bottom: 1px solid var(--c-linha); }
 .tab-hist thead th { font-size: .58rem; text-transform: uppercase; color: var(--c-texto-2); }
@@ -397,6 +416,8 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .ass-autor { margin: 0 0 .2rem; font-size: .62rem; font-weight: 700; color: var(--c-magenta-claro); text-transform: uppercase; letter-spacing: .04em; }
 .ass-texto { white-space: pre-wrap; font-size: .78rem; line-height: 1.45; }
 .ass-sug { margin-top: .5rem; padding: .5rem; border-radius: var(--raio); border: 2px dashed var(--c-aviso); }
+.ass-bairro { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem; }
+.ass-bairro .entrada, .ass-bairro .btn { min-height: 44px; }
 .ass-lugares { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
 .ass-lugar { display: flex; flex-direction: column; gap: .25rem; padding: .5rem; border-radius: var(--raio); border: 1px solid var(--c-linha); }
 .ass-lugar-info { font-size: .9rem; }

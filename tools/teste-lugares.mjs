@@ -13,6 +13,10 @@ t('sem dado vira null, não inventa', L[1].nota === null && L[1].avaliacoes === 
 var chamado = null; globalThis.fetch = async function (u, o) { chamado = o; return new Response(JSON.stringify({ places: [{ displayName: { text: 'X' } }] }), { status: 200 }); };
 r = await W.fetch(req('/lugares', { lat: -23.5, lng: -46.6 }), { PLACES_API_KEY: 'k' }); j = await r.json();
 t('com chave: 200 e lista', r.status === 200 && j.lugares[0].nome === 'X'); t('chave vai no cabeçalho', chamado.headers['X-Goog-Api-Key'] === 'k' && /restaurant/.test(chamado.body));
+var url0 = null; globalThis.fetch = async function (u, o) { url0 = u; chamado = o; return new Response(JSON.stringify({ places: [{ displayName: { text: 'Y' } }] }), { status: 200 }); };
+r = await W.fetch(req('/lugares', { texto: 'Centro, Osasco' }), { PLACES_API_KEY: 'k' }); j = await r.json();
+t('texto usa Text Search', r.status === 200 && /searchText$/.test(url0) && JSON.parse(chamado.body).textQuery === 'restaurantes em Centro, Osasco' && j.busca === 'Centro, Osasco');
+r = await W.fetch(req('/lugares', { texto: 'x' }), { PLACES_API_KEY: 'k' }); t('texto curto 400', r.status === 400);
 r = await W.fetch(req('/lugares', { lat: 999, lng: 0 }), { PLACES_API_KEY: 'k' }); t('localização inválida 400', r.status === 400);
 t('distância', Math.abs(C.distancia({ lat: -23.5, lng: -46.6 }, { lat: -23.501, lng: -46.6 }) - 111) < 3 && C.rotDist(111) === '111 m' && C.rotDist(1540) === '1,5 km');
 t('link do maps', C.linkMaps(-23.5, -46.6) === 'https://www.google.com/maps/search/restaurantes/@-23.50000,-46.60000,15z');

@@ -225,7 +225,7 @@ async function conversa(req, env, origem) {
   return resp({ erro: ult === 429 ? 'Limite gratuito do Gemini atingido.' : 'O Gemini está indisponível agora.', fallback: true }, ult === 429 ? 429 : 502, origem);
 }
 /* ---------- /lugares: restaurantes perto (Google Places API New). Chave só como secret PLACES_API_KEY; sem chave, 503 semChave (o app mostra o link do Maps). ---------- */
-var PLACES_URL = 'https://places.googleapis.com/v1/places:searchNearby';
+var PLACES_URL = 'https://places.googleapis.com/v1/places:searchNearby', PLACES_TEXTO = 'https://places.googleapis.com/v1/places:searchText';
 var PLACES_CAMPOS = 'places.id,places.displayName,places.rating,places.userRatingCount,places.priceLevel,places.priceRange,places.currentOpeningHours.openNow,places.googleMapsUri,places.location,places.reviewSummary,places.generativeSummary,places.formattedAddress';
 var PRECO = { PRICE_LEVEL_FREE: 'grátis', PRICE_LEVEL_INEXPENSIVE: '$', PRICE_LEVEL_MODERATE: '$$', PRICE_LEVEL_EXPENSIVE: '$$$', PRICE_LEVEL_VERY_EXPENSIVE: '$$$$' };
 function txtG(o) { return o && typeof o.text === 'string' ? o.text.slice(0, 400) : ''; }
@@ -246,14 +246,19 @@ async function lugares(req, env, origem) {
   if (!env.PLACES_API_KEY) return resp({ erro: 'Busca de restaurantes sem chave do Google Maps Platform.', semChave: true }, 503, origem);
   var lim = limitar(req.headers.get('CF-Connecting-IP') || 'x', env); if (lim) return resp({ erro: lim }, 429, origem);
   var c; try { c = JSON.parse((await req.text()).slice(0, 2000)); } catch (e) { return resp({ erro: 'JSON inválido.' }, 400, origem); }
+  var texto = String(c.texto || '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120), url = PLACES_URL, corpo;
+  if (texto) {
+    if (texto.length < 2) return resp({ erro: 'Digite um bairro, endereço ou cidade.' }, 400, origem);
+    url = PLACES_TEXTO; corpo = { textQuery: 'restaurantes em ' + texto, includedType: 'restaurant', maxResultCount: 10, languageCode: 'pt-BR', regionCode: 'BR' };
+  }
   var lat = +c.lat, lng = +c.lng, raio = Math.min(Math.max(+c.raio || 1500, 200), 5000);
-  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return resp({ erro: 'Localização inválida.' }, 400, origem);
-  var corpo = { includedTypes: ['restaurant'], maxResultCount: 10, rankPreference: 'POPULARITY', languageCode: 'pt-BR', regionCode: 'BR', locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: raio } } };
-  async function chamar(campos) { return fetch(PLACES_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': env.PLACES_API_KEY, 'X-Goog-FieldMask': campos }, body: JSON.stringify(corpo) }); }
+  if (!texto && (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180)) return resp({ erro: 'Localização inválida.' }, 400, origem);
+  if (!texto) corpo = { includedTypes: ['restaurant'], maxResultCount: 10, rankPreference: 'POPULARITY', languageCode: 'pt-BR', regionCode: 'BR', locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius: raio } } };
+  async function chamar(campos) { return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': env.PLACES_API_KEY, 'X-Goog-FieldMask': campos }, body: JSON.stringify(corpo) }); }
   var r; try { r = await chamar(PLACES_CAMPOS); if (r.status === 400) r = await chamar(PLACES_CAMPOS.replace(',places.reviewSummary,places.generativeSummary', '')); }
   catch (e) { return resp({ erro: 'Não consegui falar com o Google Maps.' }, 502, origem); }
   if (!r.ok) return resp({ erro: 'O Google Maps recusou a busca (' + r.status + ').' }, 502, origem);
-  return resp({ lugares: lerLugares(await r.json()) }, 200, origem);
+  return resp({ lugares: lerLugares(await r.json()), busca: texto || '' }, 200, origem);
 }
 export function config() { return { PARAMS: PARAMS, SISTEMA: SISTEMA }; }
 export default {

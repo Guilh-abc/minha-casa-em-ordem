@@ -20,6 +20,8 @@
     var m = /(\d{4})-(\d{2})-(\d{2})/.exec(s);
     if (m) return valida(+m[1], +m[2], +m[3]);
     m = /(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?/.exec(s);
+    /* só dígitos (teclado numérico): DDMMAAAA, DDMMAA ou DDMM */
+    if (!m && /^\d{4}$|^\d{6}$|^\d{8}$/.test(s.trim())) { var g = s.trim(); m = [g, g.slice(0, 2), g.slice(2, 4), g.length > 4 ? g.slice(4) : undefined]; }
     if (!m) return '';
     var d = +m[1], mes = +m[2], a;
     if (m[3]) { a = +m[3]; if (m[3].length === 2) a += 2000; if (m[3].length === 3) return ''; return valida(a, mes, d); }
@@ -38,7 +40,9 @@
     var n = parseFloat(t); return isFinite(n) ? Math.round(n * 100) / 100 : null;
   }
   function hora(v) {
-    var m = /(\d{1,2})\s*[:hH]\s*(\d{2})?/.exec(str(v, 20)); if (!m) return '';
+    var m = /(\d{1,2})\s*[:hH.]\s*(\d{2})?/.exec(str(v, 20));
+    if (!m && /^\s*\d{3,4}\s*$/.test(str(v, 20))) { var g = str(v, 20).trim(); if (g.length === 3) g = '0' + g; m = [g, g.slice(0, 2), g.slice(2)]; }
+    if (!m) return '';
     var hh = +m[1], mm = m[2] ? +m[2] : 0;
     return hh < 24 && mm < 60 ? pad(hh) + ':' + pad(mm) : '';
   }

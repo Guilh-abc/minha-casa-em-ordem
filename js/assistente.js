@@ -87,6 +87,12 @@
         l.resumo ? h('span', { class: 'ass-lugar-resumo' }, l.resumo) : null,
         l.maps ? h('a', { class: 'btn', href: l.maps, target: '_blank', rel: 'noopener', 'data-fid': 'ass-lugar-maps-' + k }, 'Abrir no Google Maps') : null);
     })));
+    if (m.bairro) {
+      var cb = h('input', { class: 'entrada', type: 'text', maxlength: '120', autocomplete: 'address-level2', placeholder: 'Digite bairro, endereço ou cidade', 'aria-label': 'Digite bairro, endereço ou cidade', 'data-fid': 'ass-bairro-' + i });
+      try { cb.value = localStorage.getItem('mco-bairro') || ''; } catch (e) {}
+      cb.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); PS.ajudanteBairro(cb.value); } });
+      filhos.push(h('div', { class: 'ass-bairro' }, cb, h('button', { class: 'btn primario', type: 'button', 'data-fid': 'ass-bairro-buscar-' + i, onclick: function () { PS.ajudanteBairro(cb.value); } }, 'Buscar restaurantes')));
+    }
     if (m.link) filhos.push(h('a', { class: 'btn', href: m.link, target: '_blank', rel: 'noopener', 'data-fid': 'ass-maps' }, 'Buscar restaurantes no Google Maps'));
     sugs.forEach(function (sg, k) {
       var id = i + '-' + k;
@@ -171,26 +177,42 @@
       passo();
     }
     /* restaurantes perto: localização só com permissão do aparelho; dados só do Google Places (via Worker); sem chave, link de busca no Maps */
+    /* corpo: { lat, lng } (localização) ou { texto } (bairro digitado). Dados só do Google Places via Worker. */
+    function buscarLugares(corpo, eu) {
+      var mapa = eu ? C.linkMaps(eu.lat, eu.lng) : 'https://www.google.com/maps/search/' + encodeURIComponent('restaurantes em ' + corpo.texto);
+      enviando = true; desenhar(); status.textContent = 'Buscando restaurantes…';
+      fetch(BASE + '/lugares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
+        .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
+        .then(function (j) {
+          var onde = eu ? 'perto de você' : 'em ' + corpo.texto;
+          if (j && j.lugares && j.lugares.length) {
+            if (!eu) { try { localStorage.setItem('mco-bairro', corpo.texto); } catch (e) {} }
+            j.lugares.forEach(function (l) { l.dist = eu && l.lat != null ? C.distancia(eu, l) : null; });
+            if (eu) j.lugares.sort(function (a, b) { return (a.dist == null ? 1e9 : a.dist) - (b.dist == null ? 1e9 : b.dist); });
+            conversa.push({ papel: 'assistant', texto: 'Restaurantes ' + onde + ' (dados do Google Maps):', local: true, lugares: j.lugares, link: mapa, bairro: !eu });
+          } else if (j && j.lugares) conversa.push({ papel: 'assistant', texto: 'O Google Maps não achou restaurantes ' + onde + '. Tente outro bairro ou abra o mapa:', local: true, link: mapa, bairro: true });
+          else conversa.push({ papel: 'assistant', texto: (j && j.semChave ? 'A busca com nota e avaliações ainda não está ligada: falta a chave do Google Maps Platform no servidor. Abra a busca no Google Maps:' : 'Não consegui buscar agora (' + ((j && j.erro) || 'erro') + '). Abra a busca no Google Maps:'), local: true, link: mapa, bairro: !eu });
+        })
+        .catch(function () { conversa.push({ papel: 'assistant', texto: 'Não consegui falar com o servidor. Abra a busca no Google Maps:', local: true, link: mapa, bairro: true }); })
+        .then(function () { enviando = false; desenhar(); });
+    }
+    function buscarBairro(txt) { txt = String(txt || '').trim().slice(0, 120); if (txt.length < 2 || enviando) return; conversa.push({ papel: 'user', texto: 'Restaurantes em ' + txt }); buscarLugares({ texto: txt }); }
+    PS.ajudanteBairro = buscarBairro;
+    /* restaurantes perto: localização só com permissão; aproximada vale (sem GPS fino, até 10 min de idade); se falhar, pede o bairro */
     function restaurantes() {
-      var semGeo = 'Não consegui a sua localização (permissão negada ou indisponível). Você pode buscar direto no Google Maps:';
-      if (!navigator.geolocation) { conversa.push({ papel: 'assistant', texto: semGeo, local: true, link: 'https://www.google.com/maps/search/restaurantes+perto+de+mim' }); return desenhar(); }
+      var maps = 'https://www.google.com/maps/search/restaurantes+perto+de+mim';
+      function falhou(msg) { enviando = false; conversa.push({ papel: 'assistant', texto: msg + ' Digite abaixo um bairro, endereço ou cidade, ou abra o Google Maps.', local: true, link: maps, bairro: true }); desenhar(); }
+      if (!navigator.geolocation) return falhou('Este navegador não informa a localização.');
       enviando = true; desenhar(); status.textContent = 'Pedindo a sua localização…';
       navigator.geolocation.getCurrentPosition(function (pos) {
-        var eu = { lat: pos.coords.latitude, lng: pos.coords.longitude }, mapa = C.linkMaps(eu.lat, eu.lng);
-        status.textContent = 'Buscando restaurantes perto…';
-        fetch(BASE + '/lugares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: eu.lat, lng: eu.lng }) })
-          .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
-          .then(function (j) {
-            if (j && j.lugares && j.lugares.length) {
-              j.lugares.forEach(function (l) { l.dist = l.lat != null ? C.distancia(eu, l) : null; });
-              j.lugares.sort(function (a, b) { return (a.dist == null ? 1e9 : a.dist) - (b.dist == null ? 1e9 : b.dist); });
-              conversa.push({ papel: 'assistant', texto: 'Restaurantes perto de você (dados do Google Maps):', local: true, lugares: j.lugares, link: mapa });
-            } else if (j && j.lugares) conversa.push({ papel: 'assistant', texto: 'O Google Maps não achou restaurantes por perto. Busque no mapa:', local: true, link: mapa });
-            else conversa.push({ papel: 'assistant', texto: (j && j.semChave ? 'A busca com nota, avaliações e preço ainda não está ligada: falta uma chave do Google Maps Platform (Places API) no servidor do Ajudante. Enquanto isso, abra a busca no Google Maps:' : 'Não consegui buscar agora (' + ((j && j.erro) || 'erro') + '). Abra a busca no Google Maps:'), local: true, link: mapa });
-          })
-          .catch(function () { conversa.push({ papel: 'assistant', texto: 'Não consegui falar com o servidor. Abra a busca no Google Maps:', local: true, link: mapa }); })
-          .then(function () { enviando = false; desenhar(); });
-      }, function () { enviando = false; conversa.push({ papel: 'assistant', texto: semGeo, local: true, link: 'https://www.google.com/maps/search/restaurantes+perto+de+mim' }); desenhar(); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
+        var eu = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        buscarLugares({ lat: eu.lat, lng: eu.lng }, eu);
+      }, function (e) {
+        var c = e && e.code;
+        if (c === 1) falhou('A localização está bloqueada para este site. Para liberar no Chrome do Android: toque no ícone ao lado do endereço (cadeado ou ajustes) > Permissões > Local > Permitir, e recarregue a página.');
+        else if (c === 3) falhou('A localização demorou demais para chegar (tempo esgotado).');
+        else falhou('Não deu para obter a localização: a Localização do Android pode estar desligada ou sem sinal. Ligue em Configurações > Local.');
+      }, { enableHighAccuracy: false, timeout: 30000, maximumAge: 600000 });
     }
     function agoraHHMM() { var d = new Date(); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
     function hojeTexto() { var hj = U.hoje(), am = U.somaDias(hj, 1); return U.DIAS[U.dowIso(hj)] + ', ' + hj.slice(8, 10) + '/' + hj.slice(5, 7) + '/' + hj.slice(0, 4) + ' (' + hj + '); amanhã é ' + U.DIAS[U.dowIso(am)] + ', ' + am.slice(8, 10) + '/' + am.slice(5, 7) + ' (' + am + ')'; }

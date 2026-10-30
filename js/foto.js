@@ -74,7 +74,9 @@
       var a = { class: 'entrada', 'data-fid': 'ft:' + k, value: valor, oninput: function () { c['_' + k] = this.value; } };
       Object.keys(attrs || {}).forEach(function (x) { a[x] = attrs[x]; });
       c['_' + k] = valor;
-      return h('label', { class: 'campo' }, h('span', null, rot), h('input', a));
+      var el = h('input', a);
+      if ((k === 'data' || k === 'hora') && PS.mascara) { PS.mascara.aplicar(el, k); c['_' + k] = el.value; el.addEventListener('input', function () { c['_' + k] = el.value; }); }
+      return h('label', { class: 'campo' }, h('span', null, rot), el);
     }
     function desenhar() {
       U.limpar(corpo);
