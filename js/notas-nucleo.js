@@ -76,7 +76,7 @@
     var soma = somaItens(n), avisos = [];
     if (falta) avisos.push(falta + (falta > 1 ? ' itens sem total' : ' item sem total') + '. Preencha conferindo na nota.');
     if (n.total === null || n.total === undefined) avisos.push('Falta o total da nota.');
-    else if (Math.abs(soma - n.total) > 0.009) avisos.push('A soma dos itens' + (n.desconto ? ' menos o desconto' : '') + ' dá ' + brl(soma) + ', mas o total da nota é ' + brl(n.total) + '. Confira os valores.');
+    else if (Math.abs(soma - n.total) > 0.009 && !(n.desconto && Math.abs(soma + n.desconto - n.total) < 0.01)) avisos.push('A soma dos itens' + (n.desconto ? ' menos o desconto' : '') + ' dá ' + brl(soma) + ', mas o total da nota é ' + brl(n.total) + '. Confira os valores.');
     return { soma: soma, bate: !avisos.length, aviso: avisos.join(' ') };
   }
   /* mais fotos numa compra já salva: junta os itens novos sem repetir os da emenda nem os que já existem.

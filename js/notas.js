@@ -149,6 +149,27 @@
   }
 
   /* ---------- seção na tela Lista de compras ---------- */
+  function importarPlanilha() {
+    var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    inp.onchange = function () {
+      var f = inp.files && inp.files[0]; if (!f) return;
+      if (!PS.planilha) return PS.aviso('Leitor de planilha indisponível.');
+      PS.planilha.ler(f).then(function (linhas) {
+        var r = PS.planilha.paraNota(linhas);
+        if (r.erro) return PS.modal.abrir('Não consegui ler a planilha', h('p', null, r.erro + ' Use as colunas Descrição, Qtd, Vl. Unit. e Vl. Total.'), [{ rotulo: 'Entendi' }]);
+        var msg = r.itens.length + ' itens lidos da planilha. ';
+        if (r.total != null) msg += Math.abs(r.somaItens - r.total) < 0.01 ? 'A soma dos itens (' + N.brl(r.somaItens) + ') confere com o valor pago.' : (r.bruto != null && Math.abs(r.somaItens - r.bruto) < 0.01 ? 'A soma dos itens (' + N.brl(r.somaItens) + ') confere com o valor total antes do desconto.' : 'Atenção: a soma dos itens (' + N.brl(r.somaItens) + ') difere do valor pago (' + N.brl(r.total) + '). Confira.');
+        else msg += 'Não achei o total na planilha; vou usar a soma dos itens.';
+        if (!r.data) msg += ' Informe a data da compra.';
+        editar({ loja: r.loja, data: r.data, itens: r.itens, desconto: r.desconto, total: r.total, origem: 'foto' }, msg + ' Confira e toque em Salvar.');
+      }, function (e) {
+        var t = e && e.message === 'xlsantigo' ? 'Arquivos .xls antigos não são lidos. Salve como .xlsx ou .csv.' : (e && e.message === 'semdescompressao' ? 'Este navegador não abre .xlsx. Salve a planilha como .csv.' : 'Não consegui abrir este arquivo.');
+        PS.modal.abrir('Não consegui ler a planilha', h('p', null, t), [{ rotulo: 'Entendi' }]);
+      });
+    };
+    inp.click();
+  }
+
   function secao() {
     var lista = S.get().notas || [];
     if (!mesSel) mesSel = U.hoje().slice(0, 7);
@@ -161,7 +182,8 @@
       h('h2', null, 'Compras feitas'),
       h('div', { class: 'acoes ft-acoes' },
         h('button', { class: 'btn primario', type: 'button', 'data-fid': 'nt:registrar', 'aria-expanded': 'false', onclick: function () { var ab = fotoBox.hasAttribute('hidden'); if (ab) fotoBox.removeAttribute('hidden'); else fotoBox.setAttribute('hidden', 'hidden'); this.setAttribute('aria-expanded', ab ? 'true' : 'false'); } }, I('camera'), 'Registrar nota'),
-        h('button', { class: 'btn', type: 'button', 'data-fid': 'nt:manual', onclick: function () { editar({ loja: '', data: U.hoje(), itens: [{ nome: '', qtd: null, unit: null, total: null }], desconto: null, total: null, origem: 'mao' }); } }, I('mais'), 'Lançar à mão')),
+        h('button', { class: 'btn', type: 'button', 'data-fid': 'nt:manual', onclick: function () { editar({ loja: '', data: U.hoje(), itens: [{ nome: '', qtd: null, unit: null, total: null }], desconto: null, total: null, origem: 'mao' }); } }, I('mais'), 'Lançar à mão'),
+        h('button', { class: 'btn', type: 'button', 'data-fid': 'nt:planilha', onclick: importarPlanilha }, I('baixar'), 'Importar planilha (Excel/CSV)')),
       fotoBox,
       h('div', { class: 'acoes nt-mes', 'data-fid': 'nt:mes' },
         h('button', { class: 'btn btn-icone', type: 'button', 'data-fid': 'nt:mes-ant', 'aria-label': 'Mês anterior', onclick: function () { ir(-1, 'nt:mes-ant'); } }, '‹'),
