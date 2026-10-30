@@ -126,7 +126,7 @@
       S.alterar(function (s) { s.compromissos.push(cp); });
       return fim('Compromisso salvo na agenda');
     }
-    S.alterar(function (s) { s.tarefas.unshift(F.paraTarefa(c, U.uid(), s.listas[0])); });
+    S.alterar(function (s) { var t = F.paraTarefa(c, U.uid(), s.listas[0]); s.tarefas.unshift(t); PS.focarLista = t.lista; });
     return fim('Tarefa salva');
   }
 

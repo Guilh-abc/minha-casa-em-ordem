@@ -109,6 +109,7 @@
   }
   views.tarefas = { reativo: true, titulo: 'Tarefas', render: function () {
     var s = S.get(), hoje = U.hoje(), nomes = D.listasComTarefas(s);
+    if (PS.focarLista) { listaAtual = PS.focarLista; PS.focarLista = null; }   /* tarefa recém-criada pela foto ou Ajudante: abre a lista dela */
     if (!listaAtual || (listaAtual !== TODOS && nomes.indexOf(listaAtual) < 0)) listaAtual = nomes[0] || TODOS;
     var todos = listaAtual === TODOS;
     function aba(id, rot, pend) {

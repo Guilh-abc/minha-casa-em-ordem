@@ -57,4 +57,21 @@ t('texto + sugestão sem pedido => só o texto', C.textoFinal('Comece pela luz. 
 t('pedido de criar mantém o bloco', /SUGESTAO/.test(C.textoFinal('Ok. <<SUGESTAO {"tipo":"tarefa","titulo":"Pagar luz"}>>', 'cria tarefa pagar luz')));
 t('sobra curta => vazio', C.textoFinal('<<SUGESTAO {"tipo":"tarefa","titulo":"a"}>> e .', 'pronto o quê') === '');
 t('mensagem de vazio não é Pronto', /Não entendi/.test(C.SEM_RESPOSTA) && !/^Pronto/.test(C.SEM_RESPOSTA));
+/* parser tolerante de <<SUGESTAO>> */
+var r = C.lerSugestoes('Pronto, veja: <<SUGESTAO {"tipo":"tarefa","titulo":"Vacinar Maria Alice até 07/11"}, data: "2026-11-07">>', SEX);
+t('malformado: data fora das chaves é lida', r.sugestoes.length === 1 && r.sugestoes[0].tipo === 'tarefa' && r.sugestoes[0].titulo === 'Vacinar Maria Alice até 07/11' && r.sugestoes[0].data === '2026-11-07');
+t('malformado: marcador nunca aparece', !/SUGEST|<<|>>|\{|\}/.test(r.texto) && /Pronto, veja/.test(r.texto));
+r = C.lerSugestoes('<<SUGESTAO {"tipo":"tarefa","titulo":"Pagar luz","data":"2026-11-10"}>> <<SUGESTAO {"tipo":"compromisso","titulo":"Dentista","data":"12/11/2026","hora":"10:00"}>>', SEX);
+t('várias sugestões, data DD/MM/AAAA aceita', r.sugestoes.length === 2 && r.sugestoes[1].tipo === 'compromisso' && r.sugestoes[1].data === '2026-11-12' && r.sugestoes[1].hora === '10:00' && r.texto === '');
+r = C.lerSugestoes('Ok <<SUGESTAO tipo=tarefa titulo="Comprar ração"', SEX);
+t('sem fechamento e sem chaves', r.sugestoes.length === 1 && r.sugestoes[0].titulo === 'Comprar ração' && !/SUGEST|<</.test(r.texto));
+r = C.lerSugestoes('Vamos lá <<SUGESTAO {lixo total}>>', SEX);
+t('ilegível: some sem deixar lixo', r.sugestoes.length === 0 && r.texto === 'Vamos lá');
+r = C.lerSugestoes('<<SUGESTÃO {\'tipo\': \'conta\', \'titulo\': \'Luz\', \'valor\': \'187,45\', \'vence\': \'15/11\'}>>', SEX);
+t('aspas simples e valor BR em conta', r.sugestoes.length === 1 && r.sugestoes[0].tipo === 'conta' && r.sugestoes[0].valor === 187.45 && r.sugestoes[0].vence === '2026-11-15');
+/* fidelidade: título tem que vir do pedido */
+t('título vindo do pedido é aceito', C.sugestaoFiel({ titulo: 'Vacinar Maria Alice' }, 'crie uma tarefa vacinar a Maria Alice até 07/11'));
+t('título inventado é recusado', !C.sugestaoFiel({ titulo: 'Vacinar Maria Alice' }, 'crie uma tarefa'));
+t('"Crie uma tarefa" sem detalhes => abrir formulário', C.pedidoVazio('Crie uma tarefa') === 'tarefa' && C.pedidoVazio('nova tarefa') === 'tarefa' && C.pedidoVazio('crie um compromisso') === 'compromisso');
+t('pedido com detalhe não é vazio', C.pedidoVazio('crie uma tarefa pagar a luz') === '' && C.pedidoVazio('o que vence essa semana') === '');
 console.log(ok + ' ok, ' + falhas + ' falhas'); process.exit(falhas ? 1 : 0);

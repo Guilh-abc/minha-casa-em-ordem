@@ -107,7 +107,7 @@
   /* respostas que o app dá sozinho, sem passar pelo modelo */
   function soLocal(q) { return !!q && q.tipo === 'proximo'; }
   /* o usuário pediu para CRIAR algo? só então o bloco <<SUGESTAO>> é aceito */
-  function pedeCriar(t) { return /\b(cri[ae]r?|adicion\w*|acrescent\w*|agend[ae]r?|marc[ae]r?|anot[ae]r?|lembr[ae]r?|coloc[ae]r?|inclu\w*|registr\w*|cadastr\w*|nova|novo)\b/.test(sem(t)); }
+  function pedeCriar(t) { return /^\s*(por favor\s+)?agenda\b/.test(sem(t)) || /\b(cri[ae]r?|adicion\w*|acrescent\w*|agend(?:e|ar|em|ei)|marc[ae]r?|marqu\w*|anot\w*|lembr[ae]r?|coloqu\w*|coloc[ae]r?|salv[ae]r?|inclu\w*|registr\w*|cadastr\w*|nova|novo)\b/.test(sem(t)); }
   var SEM_RESPOSTA = 'Não entendi a pergunta. Tente, por exemplo: qual o próximo evento, o que vence essa semana ou quais tarefas tenho.';
   /* tira blocos <<SUGESTAO>> não pedidos; se sobrar só lixo, devolve '' */
   function textoFinal(bruto, pergunta) {
@@ -117,7 +117,65 @@
     if (!/SUGEST/i.test(t) && (semBloco.match(/[a-zA-Zà-úÀ-Ú]/g) || []).length < 8) return '';
     return t;
   }
-  var C = { soLocal: soLocal, pedeCriar: pedeCriar, SEM_RESPOSTA: SEM_RESPOSTA, textoFinal: textoFinal, permitidoResposta: permitidoResposta, limpar: limpar, classificar: classificar, responder: responder, fiel: fiel, permitidoDeTexto: permitidoDeTexto, somaDias: somaDias, fimSemana: fimSemana };
+  /* ---------- <<SUGESTAO>> tolerante: aceita JSON quebrado, aspas simples, chave fora das chaves, bloco sem fechar ---------- */
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  function dataSug(v, hoje) {
+    v = String(v || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    var m = v.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/); if (!m) return '';
+    var d = +m[1], me = +m[2], a = m[3] ? +m[3] : +String(hoje || '').slice(0, 4); if (a < 100) a += 2000;
+    var dt = new Date(a, me - 1, d); if (dt.getMonth() !== me - 1 || dt.getDate() !== d) return '';
+    var iso = a + '-' + p2(me) + '-' + p2(d);
+    if (!m[3] && hoje && iso < hoje) iso = (a + 1) + iso.slice(4);
+    return iso;
+  }
+  function valorSug(v) {
+    if (typeof v === 'number') return isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : null;
+    var t = String(v || '').replace(/R\$|\s/g, ''); if (t.indexOf(',') >= 0) t = t.replace(/\./g, '').replace(',', '.');
+    var n = parseFloat(t); return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+  }
+  var CHAVE = /["']?(tipo|t[ií]tulo|data|hora|vence|valor|local)["']?\s*[:=]\s*(?:"([^"]*)"|'([^']*)'|([^,}\s>]+))/gi;
+  function camposBloco(b) {
+    var o = {}, i = b.indexOf('{'), j = b.lastIndexOf('}');
+    if (i >= 0 && j > i) { try { o = JSON.parse(b.slice(i, j + 1)); } catch (e) { try { o = JSON.parse(b.slice(i, j + 1).replace(/'/g, '"')); } catch (e2) { o = {}; } } }
+    if (!o || typeof o !== 'object') o = {};
+    var m; CHAVE.lastIndex = 0;
+    while ((m = CHAVE.exec(b))) { var k = sem(m[1]); if (o[k] == null || o[k] === '') o[k] = m[2] != null ? m[2] : (m[3] != null ? m[3] : m[4]); }
+    return o;
+  }
+  function validarSug(o, hoje) {
+    var t = String(o.titulo || '').replace(/\s+/g, ' ').trim().slice(0, 120), tipo = sem(o.tipo);
+    if (!t) return null;
+    var hr = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(o.hora || '')) ? o.hora : '';
+    if (tipo === 'tarefa') return { tipo: 'tarefa', titulo: t, data: dataSug(o.data || o.vence, hoje) };
+    if (tipo === 'conta') { var v = dataSug(o.vence || o.data, hoje); return v ? { tipo: 'conta', titulo: t.slice(0, 80), vence: v, valor: valorSug(o.valor) } : null; }
+    if (tipo === 'compromisso' || tipo === 'agenda' || tipo === 'evento') { var d = dataSug(o.data, hoje); return d ? { tipo: 'compromisso', titulo: t, data: d, hora: hr } : null; }
+    return null;
+  }
+  function lerSugestoes(txt, hoje) {
+    var sugs = [], re = /<<\s*SUGEST[AÃ]O\b([\s\S]*?)(?:>>|$)/gi;
+    var limpo = String(txt || '').replace(re, function (x, corpo) { var s1 = validarSug(camposBloco(corpo), hoje); if (s1) sugs.push(s1); return ' '; });
+    limpo = limpo.replace(/<<|>>/g, ' ').replace(/\bSUGEST[AÃ]O\b/gi, ' ').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    limpo = limpo.replace(/[\s:]+$/, '');
+    return { texto: limpo, sugestoes: sugs.slice(0, 5) };
+  }
+  /* o título precisa vir do que o usuário escreveu: nada de itens inventados */
+  var VAZIAS = /\b(uma?|o|a|os|as|nov[ao]s?|pra|para|mim|me|por|favor|ai|aqui|ajudante|agora|tarefas?|compromissos?|eventos?|contas?|agenda|na|no|de|do|da)\b/g;
+  function sugestaoFiel(sg, pergunta) {
+    var p = sem(pergunta), ws = sem(sg && sg.titulo).replace(VAZIAS, ' ').split(/[^a-z0-9]+/).filter(function (w) { return w.length >= 3 && !/^\d+$/.test(w) && w !== 'ate'; });
+    if (!ws.length) return false;
+    var achou = ws.filter(function (w) { return p.indexOf(w.slice(0, Math.min(5, w.length))) >= 0; }).length;
+    return achou * 2 >= ws.length;
+  }
+  function pedidoVazio(pergunta) {
+    var p = sem(pergunta);
+    if (!pedeCriar(p)) return '';
+    var tipo = /\btarefa/.test(p) ? 'tarefa' : /\b(compromisso|evento)/.test(p) ? 'compromisso' : /\bconta\b/.test(p) ? 'conta' : '';
+    if (!tipo) return '';
+    var resto = p.replace(/\b(cri[ae]r?|adicion\w*|acrescent\w*|agend[ae]r?|marc[ae]r?|anot[ae]r?|coloc[ae]r?|inclu\w*|registr\w*|cadastr\w*|faz(er)?|fa[cç]a|quero|preciso|pode|voce)\b/g, ' ').replace(VAZIAS, ' ').replace(/[^a-z0-9]+/g, '');
+    return resto ? '' : tipo;
+  }
+  var C = { lerSugestoes: lerSugestoes, sugestaoFiel: sugestaoFiel, pedidoVazio: pedidoVazio, dataSug: dataSug, valorSug: valorSug, soLocal: soLocal, pedeCriar: pedeCriar, SEM_RESPOSTA: SEM_RESPOSTA, textoFinal: textoFinal, permitidoResposta: permitidoResposta, limpar: limpar, classificar: classificar, responder: responder, fiel: fiel, permitidoDeTexto: permitidoDeTexto, somaDias: somaDias, fimSemana: fimSemana };
   if (typeof module !== 'undefined' && module.exports) module.exports = C;
   if (raiz) { raiz.PS = raiz.PS || {}; raiz.PS.consultas = C; }
 })(typeof window !== 'undefined' ? window : null);

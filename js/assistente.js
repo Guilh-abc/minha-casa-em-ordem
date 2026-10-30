@@ -35,46 +35,56 @@
     return l.join('\n').slice(0, 12000);
   }
 
-  /* extrai <<SUGESTAO {...}>> e valida; devolve { texto, sugestao|null } */
-  function separar(txt) {
-    var m = /<<\s*SUGEST[AÃ]O\s*(\{[\s\S]*?\})\s*>>/i.exec(txt || ''), sug = null;
-    if (m) {
-      try {
-        var o = JSON.parse(m[1]), t = String(o.titulo || '').slice(0, 120).trim();
-        if (t && o.tipo === 'tarefa') sug = { tipo: 'tarefa', titulo: t, data: U.dataValida(o.data) ? o.data : '' };
-        else if (t && o.tipo === 'conta' && U.dataValida(o.vence)) sug = { tipo: 'conta', titulo: t.slice(0, 80), vence: o.vence, valor: isFinite(Number(o.valor)) && Number(o.valor) > 0 ? Math.round(Number(o.valor) * 100) / 100 : null };
-        else if (t && o.tipo === 'compromisso' && U.dataValida(o.data)) sug = { tipo: 'compromisso', titulo: t, data: o.data, hora: U.horaValida(o.hora) ? o.hora : '' };
-      } catch (e) { sug = null; }
-      txt = txt.replace(m[0], '').trim();
-    }
-    txt = String(txt || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(^|\s)\*([^*\n]+)\*(?=\s|[.,!?]|$)/g, '$1$2').replace(/^\s*-{3,}\s*$/gm, '').trim();
-    return { texto: txt, sugestao: sug };
+  /* extrai os blocos <<SUGESTAO>> (parser tolerante) e limpa o texto; pergunta: só aceita títulos que vieram do pedido */
+  function separar(txt, pergunta) {
+    var r = C.lerSugestoes(txt || '', U.hoje()), sugs = r.sugestoes;
+    if (pergunta != null) sugs = sugs.filter(function (x) { return C.sugestaoFiel(x, pergunta); });
+    var t = String(r.texto || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(^|\s)\*([^*\n]+)\*(?=\s|[.,!?]|$)/g, '$1$2').replace(/^\s*-{3,}\s*$/gm, '').trim();
+    return { texto: t, sugestoes: sugs, recusadas: r.sugestoes.length - sugs.length, sugestao: sugs[0] || null };
   }
   function descSug(x) {
     if (x.tipo === 'tarefa') return 'Nova tarefa: ' + x.titulo + (x.data ? ', até ' + U.dataCurta(x.data) : '');
     if (x.tipo === 'conta') return 'Nova conta (avulsa): ' + x.titulo + ', ' + brl(x.valor) + ', vence ' + U.dataCurta(x.vence);
     return 'Novo compromisso: ' + x.titulo + ', ' + U.dataCurta(x.data) + (x.hora ? ' às ' + x.hora : '');
   }
+  var ROT_GRAVOU = { tarefa: 'Tarefa salva em Tarefas', conta: 'Conta salva em Contas a pagar', compromisso: 'Compromisso salvo na Agenda' };
   function gravar(x) {
     S.alterar(function (s) {
       var it;
-      if (x.tipo === 'tarefa') { it = S.sanearItem('tarefas', null, { titulo: x.titulo, vence: x.data, lista: s.listas[0], prio: 'media' }); if (it) s.tarefas.push(it); }
+      if (x.tipo === 'tarefa') { it = S.sanearItem('tarefas', null, { titulo: x.titulo, vence: x.data, lista: s.listas[0], prio: 'media' }); if (it) { s.tarefas.push(it); PS.focarLista = it.lista; } }
       else if (x.tipo === 'conta') { it = S.sanearItem('contas', null, { titulo: x.titulo, mensal: false, data: x.vence, dia: +x.vence.slice(8, 10), valor: x.valor }); if (it) s.contas.push(it); }
       else { it = S.sanearItem('compromissos', null, { titulo: x.titulo, data: x.data, hora: x.hora, fonte: 'manual' }); if (it) s.compromissos.push(it); }
     });
+    return ROT_GRAVOU[x.tipo] || ROT_GRAVOU.compromisso;
+  }
+  /* Editar: tarefa e compromisso usam a mesma revisão da foto (que salva no destino escolhido); conta tem formulário próprio */
+  function editarSug(x, fim) {
+    if (x.tipo !== 'conta') return PS.foto.revisar({ destino: x.tipo === 'tarefa' ? 'tarefa' : 'agenda', titulo: x.titulo || '', data: x.data || '', hora: x.hora || '', local: '', valor: null, nome: '', preco: null, unidade: '' }, '', fim);
+    var c = { titulo: x.titulo || '', vence: x.vence || U.hoje(), valor: x.valor == null ? '' : String(x.valor).replace('.', ',') };
+    function entrada(rot, k, at) { var a = { class: 'entrada', 'data-fid': 'ass-conta-' + k, value: c[k], oninput: function () { c[k] = this.value; } }; Object.keys(at || {}).forEach(function (z) { a[z] = at[z]; }); return h('label', { class: 'campo' }, h('span', null, rot), h('input', a)); }
+    PS.modal.abrir('Nova conta', h('div', { class: 'campos ft-revisao' }, entrada('Título', 'titulo', { maxlength: '80' }), entrada('Vence', 'vence', { type: 'date' }), entrada('Valor (R$)', 'valor', { inputmode: 'decimal', placeholder: '0,00' })), [
+      { rotulo: 'Cancelar' },
+      { rotulo: 'Salvar', tipo: 'primario', acao: function () {
+        var y = { tipo: 'conta', titulo: String(c.titulo).trim().slice(0, 80), vence: c.vence, valor: C.valorSug(c.valor) };
+        if (!y.titulo || !U.dataValida(y.vence)) { x.titulo = y.titulo; x.vence = y.vence; return editarSug(x, fim); }
+        var m = gravar(y); PS.aviso(m); fim(m);
+      } }]);
   }
 
   function balao(m, i, desenhar) {
     var filhos = [h('p', { class: 'ass-autor' }, m.papel === 'user' ? 'Você' : 'Ajudante'), h('div', { class: 'ass-texto' }, m.texto)];
-    if (m.sugestao) {
-      var sg = m.sugestao;
-      filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Sugestão de lançamento' },
+    var sugs = m.sugestoes || (m.sugestao ? [m.sugestao] : []);
+    sugs.forEach(function (sg, k) {
+      var id = i + '-' + k;
+      function pronto(msg) { sg.feito = msg; desenhar(); }
+      filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Sugestão de lançamento', 'data-fid': 'ass-sug-' + id },
         h('p', null, I('alerta'), h('span', null, descSug(sg))),
         sg.feito ? h('p', { class: 'ass-ok' }, I('check'), h('span', null, sg.feito)) :
         h('div', { class: 'acoes' },
-          h('button', { class: 'btn primario', type: 'button', 'data-fid': 'ass-confirmar-' + i, onclick: function () { gravar(sg); sg.feito = 'Gravado no app.'; desenhar(); } }, 'Confirmar e gravar'),
-          h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-descartar-' + i, onclick: function () { sg.feito = 'Descartado. Nada foi gravado.'; desenhar(); } }, 'Descartar'))));
-    }
+          h('button', { class: 'btn primario', type: 'button', 'data-fid': 'ass-confirmar-' + id, onclick: function () { pronto(gravar(sg) + '.'); } }, 'Confirmar'),
+          h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-editar-' + id, onclick: function () { editarSug(sg, function (msg) { pronto(msg + '.'); }); } }, 'Editar'),
+          h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-descartar-' + id, onclick: function () { pronto('Descartado. Nada foi gravado.'); } }, 'Descartar'))));
+    });
     if (m.foto) {
       var fc = m.foto;
       filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Dados lidos da foto' },
@@ -106,13 +116,25 @@
       var ex = {}; (st.contas || []).forEach(function (c) { if (c.exemplo) ex[c.id] = 1; });
       return { abertas: ab.filter(function (x) { return !ex[x.id]; }), compromissos: PS.rep.expandir(st.compromissos || [], U.hoje(), U.somaDias(U.hoje(), 400)), tarefas: st.tarefas || [] };
     }
+    function abrirForm(tipo, fim) {
+      if (tipo === 'conta') return editarSug({ tipo: 'conta', titulo: '', vence: U.hoje(), valor: null }, fim);
+      editarSug({ tipo: tipo, titulo: '', data: '', hora: '' }, fim);
+    }
     function hojeTexto() { var hj = U.hoje(), am = U.somaDias(hj, 1); return U.DIAS[U.dowIso(hj)] + ', ' + hj.slice(8, 10) + '/' + hj.slice(5, 7) + '/' + hj.slice(0, 4) + ' (' + hj + '); amanhã é ' + U.DIAS[U.dowIso(am)] + ', ' + am.slice(8, 10) + '/' + am.slice(5, 7) + ' (' + am + ')'; }
     function responderLocal(txt) { conversa.push({ papel: 'assistant', texto: txt, local: true }); }
     /* rapida=true: pergunta pronta, respondida 100% pelo app, sem modelo */
     function enviar(texto, rapida) {
       texto = String(texto || '').trim(); if (!texto || enviando) return;
       conversa.push({ papel: 'user', texto: texto }); campo.value = '';
-      var hj = U.hoje(), q = C.classificar(texto, hj), fechada = q ? C.responder(q, dadosConsulta()) : null;
+      var vazio = C.pedidoVazio(texto);
+      if (vazio) {
+        var rot = { tarefa: 'nova tarefa', compromisso: 'novo compromisso', conta: 'nova conta' }[vazio];
+        var msgF = { papel: 'assistant', texto: 'Abri o formulário de ' + rot + '. Preencha e salve.', local: true, form: vazio };
+        conversa.push(msgF); desenhar();
+        abrirForm(vazio, function (m) { msgF.texto = m + '.'; desenhar(); });
+        return;
+      }
+      var hj = U.hoje(), q = C.pedeCriar(texto) ? null : C.classificar(texto, hj), fechada = q ? C.responder(q, dadosConsulta()) : null;
       if (fechada && (rapida || C.soLocal(q) || !fechada.itens.length)) { responderLocal(fechada.texto); desenhar(); return; }
       enviando = true; desenhar();
       var ctx = fechada ? 'LISTA FECHADA (estes são TODOS os itens; reformule só esta lista, não acrescente nada):\n' + fechada.texto : contexto();
@@ -122,9 +144,10 @@
         .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
         .then(function (j) {
           if (j && j.resposta) {
-            var p = separar(C.textoFinal(C.limpar(j.resposta), texto));
+            var p = separar(C.textoFinal(C.limpar(j.resposta), texto), texto);
+            if (p.recusadas && !p.sugestoes.length && !fechada) { responderLocal('Não sugeri nada porque o título não veio do seu pedido. Diga o que quer criar, por exemplo: crie uma tarefa pagar a luz até 10/11.'); return; }
             if (fechada) { if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || fechada.texto }); else responderLocal(fechada.texto); }
-            else if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || (p.sugestao ? 'Posso adicionar isto:' : C.SEM_RESPOSTA), sugestao: p.sugestao });
+            else if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || (p.sugestoes.length ? 'Posso adicionar isto:' : C.SEM_RESPOSTA), sugestoes: p.sugestoes });
             else responderLocal('Não encontrei isso nos dados do app. Pergunte, por exemplo, o que vence essa semana ou o que tem na agenda amanhã.');
           }
           else conversa.push({ papel: 'assistant', texto: 'Não consegui responder: ' + ((j && j.erro) || 'erro desconhecido') });
