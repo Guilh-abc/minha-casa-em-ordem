@@ -72,7 +72,7 @@
   function permitido(resultados, hoje) {
     var txt = resultados.map(function (r) { return JSON.stringify(r); }).join('\n');
     txt = txt.replace(/(\d{4})-(\d{2})-(\d{2})/g, '$1-$2-$3 $3/$2 $3/$2/$1');
-    txt = txt.replace(/"valor":(\d+(?:\.\d+)?)/g, function (m, v) { return m + ' ' + brl(+v); });   /* valor numérico da sugestão -> R$ */
+    txt = txt.replace(/"valor":"?(\d+(?:\.\d+)?)/g, function (m, v) { return m + ' ' + brl(+v); });   /* valor numérico da sugestão -> R$ */
     return C.permitidoDeTexto(txt, hoje);
   }
   /* resposta final: remove marcadores, confere fidelidade */
