@@ -40,12 +40,13 @@
     if (o) o.inicio(); else PS.modal.abrir('Lendo a imagem', h('p', { role: 'status', 'data-fid': 'ft:lendo' }, 'Lendo a imagem… isso leva alguns segundos.'), [{ rotulo: 'Cancelar', acao: function () { ocupado = false; cancelado = true; } }]);
     reduzir(arquivo).then(function (img) {
       arquivo = null;
-      var corpo = JSON.stringify({ imagem: img, hoje: hojeBR() }); img = null;
+      var env = { imagem: img, hoje: hojeBR() }; if (o && o.modo) env.modo = o.modo;
+      var corpo = JSON.stringify(env); img = null; env = null;
       var p = fetch(URL_FOTO, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: corpo, cache: 'no-store', credentials: 'omit' });
       corpo = null;
       return p;
-    }).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.campos) throw new Error(j.erro || 'erro'); return j.campos; }); })
-      .then(function (campos) { ocupado = false; if (cancelado) return; if (o) return o.sucesso(F.normalizar(campos, U.hoje())); PS.modal.fechar(true); revisar(F.normalizar(campos, U.hoje())); },
+    }).then(function (r) { return r.json().then(function (j) { var v = o && o.modo === 'nota' ? j.nota : j.campos; if (!r.ok || !v) throw new Error(j.erro || 'erro'); return v; }); })
+      .then(function (campos) { ocupado = false; if (cancelado) return; if (o) return o.sucesso(o.modo ? campos : F.normalizar(campos, U.hoje())); PS.modal.fechar(true); revisar(F.normalizar(campos, U.hoje())); },
         function (e) { ocupado = false; arquivo = null; if (cancelado) return; var msg = (e && e.message && e.message !== 'erro' && e.message.length < 120 ? e.message : 'Tente outra foto ou confira a conexão.') + ' A imagem foi descartada.'; if (o) return o.erro(msg); PS.modal.abrir('Não consegui ler a imagem', h('p', null, msg), [{ rotulo: 'Entendi' }]); });
   }
 
@@ -149,7 +150,8 @@
         h('p', { class: 'dica' }, 'A foto só é usada para ler os dados e é descartada em seguida.'),
         li.length ? h('ul', { class: 'lista-compras', 'data-fid': 'cp:lista' }, li) : h('p', { class: 'vazio' }, 'Lista vazia. Fotografe uma etiqueta ou adicione à mão.'),
         total > 0 ? h('p', { class: 'cp-total', 'data-fid': 'cp:total' }, 'Total estimado: ' + F.brl(Math.round(total * 100) / 100)) : null,
-        feitos ? h('div', { class: 'acoes' }, h('button', { class: 'btn', type: 'button', 'data-fid': 'cp:limpar', onclick: function () { S.alterar(function (st) { st.compras = st.compras.filter(function (y) { return !y.comprado; }); }); } }, 'Limpar comprados')) : null));
+        feitos ? h('div', { class: 'acoes' }, h('button', { class: 'btn', type: 'button', 'data-fid': 'cp:limpar', onclick: function () { S.alterar(function (st) { st.compras = st.compras.filter(function (y) { return !y.comprado; }); }); } }, 'Limpar comprados')) : null),
+      PS.notas ? PS.notas.secao() : null);
   } };
 
   PS.foto = { salvar: salvar, escolher: escolher, botao: botao, revisar: revisar, reduzir: reduzir };

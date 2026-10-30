@@ -18,7 +18,7 @@
   var PRIORIDADES = ['alta', 'media', 'baixa'];
 
   function vazio() {
-    return { app: 'minha-casa-em-ordem', versao: VERSAO, config: copia(PADRAO_CONFIG), listas: ['Casa', 'Trabalho', 'Maria Alice'], tarefas: [], compromissos: [], contas: [], links: [], foco: [], cartoes: [], faturas: [], lancs: [], regras: [], radios: [], passeios: [], programa: [], compras: [] };
+    return { app: 'minha-casa-em-ordem', versao: VERSAO, config: copia(PADRAO_CONFIG), listas: ['Casa', 'Trabalho', 'Maria Alice'], tarefas: [], compromissos: [], contas: [], links: [], foco: [], cartoes: [], faturas: [], lancs: [], regras: [], radios: [], passeios: [], programa: [], compras: [], notas: [] };
   }
   function copia(o) { return JSON.parse(JSON.stringify(o)); }
   function str(v, n) { return U.limitar(v == null ? '' : String(v).replace(/[\u0000-\u001f]/g, ' '), n || 120).trim(); }
@@ -111,6 +111,12 @@
     });
     s.compras = arr(o.compras).slice(0, 300).map(function (x) {
       return { id: id(x), nome: str(x.nome, 80) || 'Item', preco: x.preco == null || x.preco === '' ? null : num(x.preco, 0, 1e6, null), unidade: str(x.unidade, 20), local: str(x.local, 60), comprado: !!x.comprado, exemplo: false };
+    });
+    /* compras feitas (notas fiscais ou lançadas à mão). Valores vazios ficam null: nunca inventamos. */
+    function vn(v) { return v == null || v === '' ? null : num(v, -1e6, 1e7, null); }
+    s.notas = arr(o.notas).slice(0, 2000).map(function (x) {
+      return { id: id(x), loja: str(x.loja, 80), data: iso(x.data), desconto: vn(x.desconto), total: vn(x.total), origem: x.origem === 'foto' ? 'foto' : 'mao',
+        itens: arr(x.itens).slice(0, 80).filter(function (i) { return i && typeof i === 'object'; }).map(function (i) { return { nome: str(i.nome, 80), qtd: vn(i.qtd), unit: vn(i.unit), total: vn(i.total) }; }) };
     });
     /* lembretes, hábitos (rotina) e checks foram removidos do app: backups antigos importam e essas partes são descartadas */
     return s;

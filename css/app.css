@@ -445,3 +445,19 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .cp-total { font-weight: 700; margin-top: var(--gap); }
 .ft-revisao .aviso-campo { color: var(--c-perigo); font-weight: 600; }
 .ft-revisao.campos { grid-template-columns: 1fr; }
+/* Compras feitas  byGui */
+.nt-secao h2 { font-size: 1.1rem; margin: 0 0 var(--gap); }
+.nt-secao h3 { font-size: .9rem; margin: var(--gap) 0 .3rem; color: var(--c-texto-2); }
+.nt-mes { align-items: center; justify-content: space-between; margin-top: var(--gap); }
+.nt-mes .btn-icone { min-width: 44px; min-height: 44px; font-size: 1.3rem; }
+.nt-nums { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .4rem; margin: .4rem 0; }
+.nt-editor .btn, .nt-secao .btn { min-height: 44px; }
+.nt-editor [data-fid="nt:aviso"] { color: var(--c-aviso); }
+.nt-editor { display: flex; flex-direction: column; align-items: stretch; gap: var(--gap); }
+.nt-item { display: flex; flex-direction: column; gap: .3rem; }
+.nt-item .entrada { width: 100%; box-sizing: border-box; }
+.nt-nums .campo > span { letter-spacing: 0; }
+.nt-editor .btn { align-self: flex-start; }
+.nt-lojas { list-style: none; margin: 0; padding: 0; }
+.nt-lojas li { display: flex; justify-content: space-between; gap: var(--gap); padding: .35rem 0; border-bottom: 1px solid var(--c-linha); }
+.nt-lojas small { color: var(--c-texto-2); white-space: nowrap; }

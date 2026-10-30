@@ -8,7 +8,7 @@
   /* coleções-lista (itens com id). Nomes: 2–16 letras minúsculas (exigência do servidor). */
   /* 'lembretes', 'habitos' e 'checks' (rotina) saíram do app: não são mais enviados; se um aparelho antigo mandar, o item é aceito e ignorado
      (sanearItem devolve null e colocar/tirar não acham a coleção). */
-  var COLECOES = ['tarefas', 'compromissos', 'contas', 'links', 'foco', 'cartoes', 'faturas', 'lancs', 'regras', 'radios', 'passeios', 'programa', 'compras'];
+  var COLECOES = ['tarefas', 'compromissos', 'contas', 'links', 'foco', 'cartoes', 'faturas', 'lancs', 'regras', 'radios', 'passeios', 'programa', 'compras', 'notas'];
   var CONFIG_LOCAL = ['fonte', 'contraste', 'filtroDono', 'notificar'];     /* preferências de TELA: cada aparelho tem a sua */
   var DIAS_TOMBA = 130;
 

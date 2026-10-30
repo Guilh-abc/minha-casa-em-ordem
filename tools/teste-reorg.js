@@ -41,6 +41,14 @@ t('coleções enviadas não incluem lembretes, hábitos nem checks', function ()
   assert(!Object.keys(l).some(function (k) { return /^(lembretes|habitos|checks)\|/.test(k); }), 'enviaria coleção removida');
   assert(l['tarefas|t1'] && l['compras|k1'] && l['contas|c1']);
 });
+t('compras feitas (notas) sincronizam e são saneadas', function () {
+  assert(N.COLECOES.indexOf('notas') >= 0);
+  var o = JSON.parse(JSON.stringify(ANTIGO)); o.notas = [{ id: 'n1', loja: 'Atacadão', data: '2026-10-28', total: '49.79', desconto: null, itens: [{ nome: 'Leite', qtd: 1, unit: 4.99, total: 4.99 }, 'lixo'] }];
+  var s = S.sanear(JSON.parse(JSON.stringify(o)));
+  if (s) { assert.strictEqual(s.notas.length, 1); assert.strictEqual(s.notas[0].total, 49.79); assert.strictEqual(s.notas[0].itens.length, 1); }
+  assert(N.itensLocais(o)['notas|n1']);
+  var velho = JSON.parse(JSON.stringify(ANTIGO)); delete velho.notas; assert.deepStrictEqual(N.itensLocais(velho)['notas|n1'], undefined);
+});
 t('itens recebidos de aparelho antigo (lembretes, hábitos, checks) são aceitos e ignorados', function () {
   S.substituir(S.sanear({}));
   assert.strictEqual(S.sanearItem('lembretes', 'l2', { id: 'l2', titulo: 'x', dia: 10 }), null);

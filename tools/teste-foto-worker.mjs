@@ -1,5 +1,5 @@
 /* Rota /foto do assistente-worker. node tools/teste-foto-worker.mjs  byGui */
-import W, { montarFoto, lerFoto, MODELO_FOTO } from '../assistente-worker/worker.js';
+import W, { montarFoto, lerFoto, lerNota, MODELO_FOTO } from '../assistente-worker/worker.js';
 var ok = 0, f = 0; function t(n, c) { if (c) ok++; else { f++; console.log('  FALHA ' + n); } }
 var IMG = 'data:image/jpeg;base64,' + 'A'.repeat(400);
 var o = montarFoto({ imagem: IMG, hoje: '30/10/2026' });
@@ -28,4 +28,14 @@ t('não devolve a imagem', JSON.stringify(j).indexOf('AAAA') < 0);
 t('no-store', res.headers.get('Cache-Control') === 'no-store');
 var grande = new Request('https://x/foto', { method: 'POST', headers: { Origin: 'https://guilhermeromio-netto-prog.github.io' }, body: JSON.stringify({ imagem: 'data:image/jpeg;base64,' + 'A'.repeat(3e6) }) });
 t('foto grande demais 413', (await W.fetch(grande, { LIQUID_API_KEY: 'k' })).status === 413);
+/* modo nota fiscal */
+var on = montarFoto({ imagem: IMG, hoje: '30/10/2026', modo: 'nota' });
+t('nota: prompt próprio com loja, itens e total', /nota fiscal|cupom/i.test(on.messages[0].content) && /"itens"/.test(on.messages[0].content) && /desconto/.test(on.messages[0].content) && on.max_tokens >= 800 && !('top_p' in on));
+t('modo comum continua igual', !/"itens"/.test(montarFoto({ imagem: IMG }).messages[0].content));
+var n = lerNota('```json\n{"loja":"Atacadão","data":"28/10","itens":[{"nome":"Arroz 5kg","qtd":"2","unit":"R$ 22,90","total":"R$ 45,80"},{"nome":"Leite","qtd":1,"unit":"4,99","total":"4,99"}],"desconto":"R$ 1,00","total":"R$ 49,79","x":"lixo"}\n```');
+t('lerNota: campos e itens', n && n.loja === 'Atacadão' && n.data === '28/10' && n.itens.length === 2 && n.itens[0].nome === 'Arroz 5kg' && n.itens[0].total === 'R$ 45,80' && n.total === 'R$ 49,79' && n.desconto === 'R$ 1,00' && !('x' in n));
+t('lerNota: itens não-lista viram []', lerNota('{"loja":"A","itens":"x"}').itens.length === 0);
+t('lerNota: lixo => null', lerNota('sem json') === null);
+var muitos = { loja: 'L', itens: [] }; for (var k = 0; k < 120; k++) muitos.itens.push({ nome: 'i' + k, total: '1,00' });
+t('lerNota: no máximo 80 itens', lerNota(JSON.stringify(muitos)).itens.length === 80);
 console.log(ok + ' ok, ' + f + ' falhas'); process.exit(f ? 1 : 0);

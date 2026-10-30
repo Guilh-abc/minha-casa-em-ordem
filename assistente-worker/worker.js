@@ -53,14 +53,31 @@ var SISTEMA_FOTO = 'Você lê fotos e prints para o app Minha Casa em Ordem, de 
   'Para boleto: {"destino":"tarefa","titulo":"Pagar boleto <beneficiário>","data":"vencimento DD/MM/AAAA","valor":"R$ 0,00"}. ' +
   'Para evento: {"destino":"agenda","titulo":"...","data":"DD/MM/AAAA","hora":"HH:MM","local":"..."}. ' +
   'Datas SEMPRE no formato brasileiro DD/MM/AAAA (dia primeiro). Copie números exatamente como aparecem. Deixe "" no que não aparecer. Nunca invente.';
+/* modo nota fiscal (cupom de mercado): loja, data, itens, desconto e total, copiados como aparecem */
+var SISTEMA_NOTA = 'Você lê fotos de nota fiscal ou cupom de compra para o app Minha Casa em Ordem, de uma família brasileira. ' +
+  'Responda SÓ com um objeto JSON numa linha, sem texto em volta, neste formato: ' +
+  '{"loja":"nome da loja","data":"DD/MM","itens":[{"nome":"produto","qtd":"1","unit":"R$ 0,00","total":"R$ 0,00"}],"desconto":"R$ 0,00","total":"R$ 0,00"}. ' +
+  'Um item por linha da nota, na ordem. Copie nomes e números exatamente como aparecem. Deixe "" no que não aparecer. Nunca invente nem calcule valores.';
+var CHAVES_NOTA = ['loja', 'data', 'desconto', 'total'], CHAVES_ITEM = ['nome', 'qtd', 'unit', 'total'];
+function campoTxt(v, n) { return typeof v === 'string' ? v.slice(0, n) : (typeof v === 'number' && isFinite(v) ? String(v) : ''); }
+export function lerNota(t) {
+  var s = String(t || ''), i = s.indexOf('{'), j = s.lastIndexOf('}');
+  if (i < 0 || j <= i) return null;
+  var o; try { o = JSON.parse(s.slice(i, j + 1)); } catch (e) { return null; }
+  if (!o || typeof o !== 'object') return null;
+  var r = {}; CHAVES_NOTA.forEach(function (k) { r[k] = campoTxt(o[k], 80); });
+  r.itens = (Array.isArray(o.itens) ? o.itens : []).slice(0, 80).filter(function (x) { return x && typeof x === 'object'; })
+    .map(function (x) { var y = {}; CHAVES_ITEM.forEach(function (k) { y[k] = campoTxt(x[k], k === 'nome' ? 80 : 20); }); return y; });
+  return r;
+}
 var CHAVES_FOTO = ['destino', 'nome', 'preco', 'unidade', 'local', 'titulo', 'data', 'hora', 'valor'];
 export function montarFoto(corpo) {
   var img = corpo && typeof corpo.imagem === 'string' ? corpo.imagem : '';
   if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(img)) return null;
-  var hoje = txt(corpo.hoje, 40);
-  return { model: MODELO_FOTO, max_tokens: 300, temperature: 0.1, chat_template_kwargs: { enable_thinking: false },
-    messages: [{ role: 'system', content: SISTEMA_FOTO + (hoje ? ' Hoje é ' + hoje + '.' : '') },
-      { role: 'user', content: [{ type: 'image_url', image_url: { url: img } }, { type: 'text', text: 'Extraia os dados desta imagem.' }] }] };
+  var hoje = txt(corpo.hoje, 40), nota = corpo.modo === 'nota';
+  return { model: MODELO_FOTO, max_tokens: nota ? 1200 : 300, temperature: 0.1, chat_template_kwargs: { enable_thinking: false },
+    messages: [{ role: 'system', content: (nota ? SISTEMA_NOTA : SISTEMA_FOTO) + (hoje ? ' Hoje é ' + hoje + '.' : '') },
+      { role: 'user', content: [{ type: 'image_url', image_url: { url: img } }, { type: 'text', text: nota ? 'Leia esta nota fiscal.' : 'Extraia os dados desta imagem.' }] }] };
 }
 export function lerFoto(t) {
   var s = String(t || ''), i = s.indexOf('{'), j = s.lastIndexOf('}');
@@ -78,6 +95,7 @@ async function rotaFoto(req, env, origem) {
   if (lim) return resp({ erro: lim }, 429, origem);
   var corpo; try { corpo = JSON.parse(bruto); } catch (e) { return resp({ erro: 'JSON inválido.' }, 400, origem); }
   bruto = null;
+  var modoNota = corpo && corpo.modo === 'nota';
   var envio = montarFoto(corpo); corpo = null;
   if (!envio) return resp({ erro: 'Envie uma imagem JPEG, PNG ou WebP.' }, 400, origem);
   var r;
@@ -87,6 +105,11 @@ async function rotaFoto(req, env, origem) {
   if (!r.ok) return resp({ erro: 'A Liquid AI respondeu com erro (' + r.status + ').' }, 502, origem);
   var j; try { j = await r.json(); } catch (e) { return resp({ erro: 'Resposta inválida da Liquid AI.' }, 502, origem); }
   var c = j && j.choices && j.choices[0] && j.choices[0].message ? j.choices[0].message.content || '' : '';
+  if (modoNota) {
+    var nota = lerNota(c);
+    if (!nota) return resp({ erro: 'Não consegui ler a nota. Tente outra foto, com a nota inteira e reta.' }, 422, origem);
+    return resp({ nota: nota, modelo: MODELO_FOTO }, 200, origem);
+  }
   var campos = lerFoto(c);
   if (!campos) return resp({ erro: 'Não consegui ler a imagem. Tente outra foto.' }, 422, origem);
   return resp({ campos: campos, modelo: MODELO_FOTO }, 200, origem);
