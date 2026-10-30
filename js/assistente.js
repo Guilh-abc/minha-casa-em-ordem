@@ -47,6 +47,7 @@
       } catch (e) { sug = null; }
       txt = txt.replace(m[0], '').trim();
     }
+    txt = String(txt || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(^|\s)\*([^*\n]+)\*(?=\s|[.,!?]|$)/g, '$1$2').replace(/^\s*-{3,}\s*$/gm, '').trim();
     return { texto: txt, sugestao: sug };
   }
   function descSug(x) {
@@ -64,7 +65,7 @@
   }
 
   function balao(m, i, desenhar) {
-    var filhos = [h('p', { class: 'ass-autor' }, m.papel === 'user' ? 'Você' : 'Assistente'), h('div', { class: 'ass-texto' }, m.texto)];
+    var filhos = [h('p', { class: 'ass-autor' }, m.papel === 'user' ? 'Você' : 'Ajudante'), h('div', { class: 'ass-texto' }, m.texto)];
     if (m.sugestao) {
       var sg = m.sugestao;
       filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Sugestão de lançamento' },
@@ -79,13 +80,13 @@
 
   function render() {
     var raiz = h('div', { class: 'tela-ass' });
-    var lista = h('ol', { class: 'ass-lista', 'aria-live': 'polite', 'aria-label': 'Conversa com o assistente' });
+    var lista = h('ol', { class: 'ass-lista', 'aria-live': 'polite', 'aria-label': 'Conversa com o ajudante' });
     var status = h('p', { class: 'ass-status', role: 'status' });
     var campo = h('textarea', { id: 'ass-pergunta', rows: '2', maxlength: '1000', placeholder: 'Ex.: O que vence essa semana?', 'data-fid': 'ass-pergunta' });
     var btn = h('button', { class: 'btn primario', type: 'submit', 'data-fid': 'ass-enviar' }, 'Perguntar');
     function desenhar() {
       U.limpar(lista);
-      if (!conversa.length) lista.appendChild(h('li', { class: 'vazio' }, 'Pergunte sobre contas, vencimentos, tarefas ou agenda. O assistente lê um resumo dos dados deste aparelho e só grava algo se você confirmar.'));
+      if (!conversa.length) lista.appendChild(h('li', { class: 'vazio' }, 'Nenhuma pergunta ainda. O ajudante lê um resumo dos dados deste aparelho e só grava algo se você confirmar.'));
       conversa.forEach(function (m, i) { lista.appendChild(balao(m, i, desenhar)); });
       btn.disabled = enviando; status.textContent = enviando ? 'Pensando…' : '';
       lista.scrollTop = lista.scrollHeight;
@@ -101,7 +102,7 @@
           if (j && j.resposta) { var p = separar(j.resposta); conversa.push({ papel: 'assistant', texto: p.texto || 'Pronto.', sugestao: p.sugestao }); }
           else conversa.push({ papel: 'assistant', texto: 'Não consegui responder: ' + ((j && j.erro) || 'erro desconhecido') });
         })
-        .catch(function () { conversa.push({ papel: 'assistant', texto: 'Sem conexão com o assistente agora. Tente de novo quando estiver online.' }); })
+        .catch(function () { conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
         .then(function () { enviando = false; desenhar(); campo.focus(); });
     }
     var form = h('form', { class: 'ass-form', onsubmit: function (e) { e.preventDefault(); enviar(campo.value); } },
@@ -112,11 +113,11 @@
       ['O que vence essa semana?', 'Tem conta atrasada?', 'Quais tarefas são prioridade alta?', 'O que tenho na agenda amanhã?'].map(function (q, i) {
         return h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(q); } }, q);
       }));
-    raiz.appendChild(h('section', { class: 'cartao' }, h('h2', null, I('estrela'), h('span', null, 'Assistente')), atalhos, lista, status, form,
+    raiz.appendChild(h('section', { class: 'cartao' }, h('h2', null, I('estrela'), h('span', null, 'Ajudante da casa')), h('p', { class: 'ass-intro' }, 'Oi! Sou o ajudante geral do app. Posso ajudar com contas e vencimentos, agenda, tarefas e lembretes: pergunte o que vence, o que está atrasado ou o que tem para amanhã. Se você pedir para anotar algo, eu sugiro e você confirma antes de gravar.'), atalhos, lista, status, form,
       h('p', { class: 'ass-nota' }, 'Usa o modelo LFM3-1.7B da Liquid AI. Um resumo de contas, tarefas e agenda sai deste aparelho só quando você pergunta; faturas detalhadas e cartões não são enviados. Respostas podem errar: confira antes de pagar.')));
     desenhar();
     return raiz;
   }
-  PS.views.assistente = { reativo: false, titulo: 'Assistente', render: render };
+  PS.views.assistente = { reativo: false, titulo: 'Ajudante', render: render };
   PS.assistente = { contexto: contexto, separar: separar };
 })(window);
