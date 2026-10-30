@@ -81,6 +81,15 @@
     o = o || {}; var q = norm(o.q || '');
     return ls.filter(function (l) { return (!o.cat || l.cat === o.cat) && (!o.dono || (l.dono || '') === o.dono) && (!q || norm(l.desc).indexOf(q) >= 0); });
   }
-  var API = { lancsDe: lancsDe, faturaTotal: faturaTotal, porCategoria: porCategoria, top: top, assinaturas: assinaturas, parcelas: parcelas, evolucao: evolucao, comparar: comparar, csv: csv, filtrar: filtrar, diasEntre: diasEntre, somaMes: somaMes, norm: norm };
+  /* gastos avulsos (cupom fiscal lido pela câmera): lançamentos com fatura 'avulso', agrupados por mês (mais recente primeiro) */
+  function avulsos(s) {
+    var m = {};
+    (s.lancs || []).forEach(function (l) { if (l.fatura !== 'avulso' || !l.data) return; var k = l.data.slice(0, 7); (m[k] = m[k] || []).push(l); });
+    return Object.keys(m).sort().reverse().map(function (k) {
+      var it = m[k].slice().sort(function (a, b) { return a.data < b.data ? 1 : -1; });
+      return { mes: k, itens: it, total: r2(it.reduce(function (a, x) { return a + x.valor; }, 0)), porCat: porCategoria(it) };
+    });
+  }
+  var API = { avulsos: avulsos, lancsDe: lancsDe, faturaTotal: faturaTotal, porCategoria: porCategoria, top: top, assinaturas: assinaturas, parcelas: parcelas, evolucao: evolucao, comparar: comparar, csv: csv, filtrar: filtrar, diasEntre: diasEntre, somaMes: somaMes, norm: norm };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else { g.PS = g.PS || {}; g.PS.cartoesCalc = API; }
 })(typeof window !== 'undefined' ? window : this);
