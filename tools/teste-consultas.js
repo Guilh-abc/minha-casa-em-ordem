@@ -27,7 +27,7 @@ var D = {
 t('amanhã a partir de 30/10 é 31/10', function () { var q = C.classificar('O que tenho na agenda amanhã?', HOJE); assert.strictEqual(q.tipo, 'agenda'); assert.strictEqual(q.ini, '2026-10-31'); assert.strictEqual(q.fim, '2026-10-31'); });
 t('amanhã vira o mês/ano', function () { assert.strictEqual(C.classificar('agenda de amanhã', '2026-12-31').ini, '2027-01-01'); });
 t('hoje', function () { var q = C.classificar('compromissos de hoje?', HOJE); assert.strictEqual(q.tipo, 'agenda'); assert.strictEqual(q.ini, HOJE); });
-t('vence essa semana = hoje..domingo', function () { var q = C.classificar('O que vence essa semana?', HOJE); assert.strictEqual(q.tipo, 'vencimentos'); assert.strictEqual(q.ini, HOJE); assert.strictEqual(q.fim, '2026-11-01'); });
+t('vence essa semana = hoje..+7', function () { var q = C.classificar('O que vence essa semana?', HOJE); assert.strictEqual(q.tipo, 'vencimentos'); assert.strictEqual(q.ini, HOJE); assert.strictEqual(q.fim, '2026-11-06'); });
 t('atrasada', function () { assert.strictEqual(C.classificar('Tem conta atrasada?', HOJE).tipo, 'atrasadas'); });
 t('prioridade alta', function () { assert.strictEqual(C.classificar('Quais tarefas são prioridade alta?', HOJE).tipo, 'prioridade'); });
 t('pergunta livre não classifica', function () { assert.strictEqual(C.classificar('Quanto gastei com mercado?', HOJE), null); });

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Esboço — cadastro por voz</title>
+<style>
+:root{--fundo:#f6f4ef;--card:#fff;--tinta:#1f2a2e;--suave:#5b6b70;--pri:#2f6f5e;--alerta:#b5532c;--raio:14px}
+*{box-sizing:border-box}body{margin:0;font:16px/1.4 system-ui,sans-serif;background:var(--fundo);color:var(--tinta)}
+main{max-width:420px;margin:0 auto;padding:16px}h1{font-size:1.1rem}
+.estados{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.estados button{border:1px solid #ccc;background:#fff;border-radius:99px;padding:6px 10px}
+.estados button[aria-pressed=true]{background:var(--pri);color:#fff;border-color:var(--pri)}
+.card{background:var(--card);border-radius:var(--raio);padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);min-height:260px}
+.mic{width:84px;height:84px;border-radius:50%;background:var(--pri);color:#fff;font-size:34px;display:grid;place-items:center;margin:12px auto;border:0}
+.ouvindo .mic{animation:p 1.2s infinite}@keyframes p{0%{box-shadow:0 0 0 0 rgba(47,111,94,.5)}100%{box-shadow:0 0 0 22px rgba(47,111,94,0)}}
+.transc{color:var(--suave);font-style:italic;text-align:center;min-height:2.6em}
+.sug{border:2px solid var(--pri);border-radius:12px;padding:12px}.sug dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:8px 0}.sug dt{color:var(--suave)}
+.acoes{display:flex;gap:8px;margin-top:12px}.acoes button{flex:1;padding:10px;border-radius:10px;border:1px solid #ccc;background:#fff;font-size:1rem}.acoes .primario{background:var(--pri);color:#fff;border-color:var(--pri)}
+.ok{color:var(--pri);font-weight:600;text-align:center;font-size:1.1rem}.erro{color:var(--alerta)}
+.spin{width:28px;height:28px;border:3px solid #ddd;border-top-color:var(--pri);border-radius:50%;margin:16px auto;animation:g 1s linear infinite}@keyframes g{to{transform:rotate(360deg)}}
+[hidden]{display:none!important}footer{text-align:center;color:var(--suave);font-size:.8rem;margin-top:16px}
+</style></head><body><main>
+<h1>Ajudante — cadastro por voz (esboço, não publicado)</h1>
+<div class="estados" role="group" aria-label="Estados">
+<button data-e="ouvindo">ouvindo</button><button data-e="entendendo">entendendo</button><button data-e="confirmando">confirmando</button><button data-e="gravado">gravado</button><button data-e="erro">erro</button></div>
+<section class="card" id="card" aria-live="polite">
+ <div data-v="ouvindo"><button class="mic" aria-label="Parar de ouvir">🎤</button><p class="transc">"me lembra de comprar pão amanhã…"</p><p style="text-align:center">Ouvindo… <button>Parar</button></p></div>
+ <div data-v="entendendo"><p class="transc">"me lembra de comprar pão amanhã"</p><div class="spin" aria-hidden="true"></div><p style="text-align:center">Entendendo…</p></div>
+ <div data-v="confirmando"><div class="sug" role="group" aria-label="Confirmar cadastro"><strong>Criar tarefa?</strong>
+  <dl><dt>Título</dt><dd>Comprar pão</dd><dt>Quando</dt><dd>sáb, 31/10</dd><dt>Prioridade</dt><dd>média</dd></dl>
+  <p class="transc">🔊 "Criar tarefa Comprar pão para amanhã, sábado 31? Diga sim ou não."</p>
+  <div class="acoes"><button class="primario" data-ir="gravado">Confirmar</button><button data-ir="ouvindo">Corrigir</button><button>Descartar</button></div></div></div>
+ <div data-v="gravado"><p class="ok">✓ Gravado em Tarefas</p><p style="text-align:center">🔊 "Pronto, anotei." <button>Desfazer</button></p></div>
+ <div data-v="erro"><p class="erro"><strong>Não entendi.</strong> Pode repetir? (ou: microfone sem permissão · navegador sem reconhecimento de voz · Gemini no limite: abra o formulário com a frase já preenchida)</p><div class="acoes"><button class="primario" data-ir="ouvindo">Tentar de novo</button><button>Digitar</button></div></div>
+</section>
+<footer>byGui</footer></main>
+<script>
+(function () {
+  var bs = document.querySelectorAll('.estados button'), vs = document.querySelectorAll('[data-v]');
+  function ir(e) {
+    for (var i = 0; i < vs.length; i++) vs[i].hidden = vs[i].getAttribute('data-v') !== e;
+    for (var j = 0; j < bs.length; j++) bs[j].setAttribute('aria-pressed', String(bs[j].getAttribute('data-e') === e));
+    document.getElementById('card').className = 'card ' + e;
+  }
+  for (var i = 0; i < bs.length; i++) bs[i].onclick = function () { ir(this.getAttribute('data-e')); };
+  var go = document.querySelectorAll('[data-ir]'); for (var k = 0; k < go.length; k++) go[k].onclick = function () { ir(this.getAttribute('data-ir')); };
+  ir(location.hash.slice(1) || 'ouvindo');
+})();
+</script></body></html>

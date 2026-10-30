@@ -10,8 +10,9 @@
   function curta(iso) { return DIAS[new Date(utc(iso)).getUTCDay()] + ', ' + ddmm(iso); }
   function brl(v) { return v == null ? 'sem valor' : 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
   /* domingo da semana corrente (semana de segunda a domingo); no domingo é o próprio dia */
-  function fimSemana(iso) { var d = new Date(utc(iso)).getUTCDay(); return somaDias(iso, d === 0 ? 0 : 7 - d); }
-  function rotSemana(hoje) { var f = fimSemana(hoje); return f === hoje ? 'nesta semana (hoje, ' + ddmm(hoje) + ')' : 'nesta semana (' + ddmm(hoje) + ' a ' + ddmm(f) + ')'; }
+  /* "essa semana" = de hoje até hoje+7 (inclusive): 30/10 a 06/11 */
+  function fimSemana(iso) { return somaDias(iso, 7); }
+  function rotSemana(hoje) { return 'nos próximos 7 dias (' + ddmm(hoje) + ' a ' + ddmm(fimSemana(hoje)) + ')'; }
   function sem(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
   var EXTENSO = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10 };

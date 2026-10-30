@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Teste de tela do Ajudante: perguntas rápidas sem modelo, semana de segunda a domingo, limpeza de repetição e entrada por voz (reconhecimento simulado). Uso: python3 tools/teste-ajudante-tela.py [--chrome CAMINHO] [--prints PASTA]  byGui"""
+"""Teste de tela do Ajudante: perguntas rápidas sem modelo, semana = hoje até +7, limpeza de repetição e entrada por voz (reconhecimento simulado). Uso: python3 tools/teste-ajudante-tela.py [--chrome CAMINHO] [--prints PASTA]  byGui"""
 import argparse, functools, http.server, pathlib, socketserver, threading, sys, json
 from playwright.sync_api import sync_playwright
 raiz = pathlib.Path(__file__).resolve().parent.parent
@@ -24,8 +24,16 @@ with sync_playwright() as p:
         ctx = b.new_context(viewport={'width': w, 'height': hh}); ctx.add_init_script(RELOGIO + VOZ)
         enviados = []
         def rota(r):
-            enviados.append(json.loads(r.request.post_data or '{}'))
-            r.fulfill(status=200, headers={'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}, body=json.dumps({'resposta': 'A conta de luz vence sáb, 31/10. A conta de luz vence sáb, 31/10. A conta de luz vence sáb, 31/10.......'}))
+            corpo = json.loads(r.request.post_data or '{}'); enviados.append(corpo)
+            ts = corpo.get('turnos') or []
+            if ts and ts[-1].get('r') == 'tool':   # Gemini: depois da ferramenta, resume o resultado
+                res = ts[-1]['fr'][0]['res']; it = (res.get('itens') or [{}])[0]
+                o = {'resposta': 'Você tem %d conta atrasada: %s, %s.' % (res.get('total', 0), it.get('titulo', ''), it.get('valor', ''))}
+            elif ts and 'atrasada' in ts[-1].get('t', ''):
+                o = {'chamadas': [{'n': 'listar_contas', 'a': {'status': 'atrasadas'}, 's': ''}]}
+            else:
+                o = {'resposta': 'A conta de luz vence sáb, 31/10. A conta de luz vence sáb, 31/10. A conta de luz vence sáb, 31/10.......'}
+            r.fulfill(status=200, headers={'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}, body=json.dumps(o))
         ctx.route('**/minha-casa-assistente**', rota)
         pg = ctx.new_page(); erros = []; pg.on('pageerror', lambda e: erros.append(str(e)))
         pg.goto(base + '#/'); pg.wait_for_timeout(700); pg.evaluate(DADOS)
@@ -33,7 +41,7 @@ with sync_playwright() as p:
         pg.evaluate("location.hash='#/assistente'"); pg.wait_for_timeout(400)
         pg.locator('[data-fid="ass-rapida-0"]').click(); pg.wait_for_timeout(200)
         t = pg.locator('.ass-msg.ia .ass-texto').last.inner_text()
-        check('Luz' in t and 'Escola' not in t and '01/11' in t, '[%d] essa semana = até domingo 01/11, sem Escola (02/11): %r' % (w, t))
+        check('Luz' in t and 'Escola' in t and '06/11' in t, '[%d] essa semana = hoje até +7 (30/10 a 06/11), com Escola (02/11): %r' % (w, t))
         pg.locator('[data-fid="ass-rapida-3"]').click(); pg.wait_for_timeout(200)
         t = pg.locator('.ass-msg.ia .ass-texto').last.inner_text()
         check('Dentista' in t and '22/11' not in t, '[%d] agenda amanhã sem o aniversário de 22/11' % w)

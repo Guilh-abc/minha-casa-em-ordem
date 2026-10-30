@@ -37,7 +37,7 @@ async function ler(req, env, origem) {
   if (tam > MAX_IMG) return resp({ erro: 'Imagem grande demais.' }, 413, origem);
   var bruto = await req.text();
   if (bruto.length > MAX_IMG) return resp({ erro: 'Imagem grande demais.' }, 413, origem);
-  var ip = req.headers.get('CF-Connecting-IP') || 'x', lim = limitar(ip);
+  var ip = req.headers.get('CF-Connecting-IP') || 'x', lim = limitar(ip, env);
   if (lim) return resp({ erro: lim }, 429, origem);
   var corpo; try { corpo = JSON.parse(bruto); } catch (e) { return resp({ erro: 'JSON inválido.' }, 400, origem); }
   var img = typeof corpo.imagem === 'string' ? corpo.imagem : '';
@@ -61,12 +61,13 @@ function cors(origem) {
   return h;
 }
 function resp(obj, st, origem) { return new Response(JSON.stringify(obj), { status: st, headers: cors(origem) }); }
-function limitar(ip) {
+function limitar(ip, env) {
+  var LIM = env && +env.LIMITE_IP > 0 ? +env.LIMITE_IP : LIM_IP;   /* LIMITE_IP só em testes locais (wrangler dev) */
   var agora = Date.now(), hoje = new Date().toISOString().slice(0, 10);
   if (dia.d !== hoje) { dia.d = hoje; dia.n = 0; porIp.clear(); }
   if (dia.n >= LIM_DIA) return 'Limite diário do assistente atingido. Tente amanhã.';
   var l = (porIp.get(ip) || []).filter(function (t) { return agora - t < JANELA; });
-  if (l.length >= LIM_IP) return 'Muitas perguntas seguidas. Espere alguns minutos.';
+  if (l.length >= LIM) return 'Muitas perguntas seguidas. Espere alguns minutos.';
   l.push(agora); porIp.set(ip, l); dia.n++; return '';
 }
 function txt(v, n) { return typeof v === 'string' ? v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ').slice(0, n) : ''; }
@@ -82,21 +83,92 @@ export function montarCorpo(corpo) {
   Object.keys(PARAMS).forEach(function (k) { o[k] = PARAMS[k]; });
   return o;
 }
+
+/* ---------- /conversa: Gemini (faixa grátis) com function calling; as ferramentas rodam NO APP, sobre os dados reais ---------- */
+var GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta/models/';
+/* Plano gratuito (medido 30/10): gemini-3.5-flash tem só 20 pedidos/DIA por projeto; o flash-lite aguenta o uso diário. Padrão = lite, reserva = flash. */
+var GEMINI_PADRAO = 'gemini-3.5-flash-lite', GEMINI_RESERVA = 'gemini-3.5-flash';
+var MAX_CONVERSA = 60000, MAX_TURNOS = 40;
+var SISTEMA_G = 'Você é o Ajudante do app Minha Casa em Ordem, de uma família brasileira. Responda em português do Brasil, informal e curto (até 6 linhas). ' +
+  'Você NÃO conhece os dados da família: para qualquer pergunta sobre agenda, tarefas, contas ou eventos, CHAME as ferramentas e responda SÓ com o que elas devolverem. ' +
+  'Nunca invente itens, datas, horários ou valores; se a ferramenta vier vazia, diga que não encontrou no app. Copie datas e valores exatamente como vieram. ' +
+  'Períodos: "hoje" = data de hoje; "amanhã" = hoje+1; "essa semana"/"esta semana"/"semana" = de hoje até hoje+7 (inclusive); "este mês" = até o fim do mês. Use datas AAAA-MM-DD nas ferramentas. ' +
+  'Se o usuário pedir para criar, anotar, marcar, agendar ou lembrar algo, chame criar_sugestao (o app mostra um cartão e só grava se ele confirmar); diga que está aguardando a confirmação. Nunca diga que gravou. ' +
+  'Use o histórico para entender continuações curtas ("pronto o quê?", "e amanhã?", "e as atrasadas?"): explique ou complete a resposta anterior. ' +
+  'Entenda erros de digitação. Não use markdown com asteriscos; listas com "- ".';
+var FERRAMENTAS = [{ functionDeclarations: [
+  { name: 'buscar_agenda', description: 'Compromissos da agenda entre duas datas (inclusive).', parameters: { type: 'OBJECT', properties: { de: { type: 'STRING', description: 'AAAA-MM-DD' }, ate: { type: 'STRING', description: 'AAAA-MM-DD' } }, required: ['de', 'ate'] } },
+  { name: 'proximo_evento', description: 'O próximo compromisso da agenda a partir de agora.', parameters: { type: 'OBJECT', properties: {} } },
+  { name: 'listar_tarefas', description: 'Tarefas da família.', parameters: { type: 'OBJECT', properties: { filtro: { type: 'STRING', enum: ['pendentes', 'alta', 'hoje', 'atrasadas', 'semana', 'concluidas', 'todas'] }, limite: { type: 'INTEGER' }, lista: { type: 'STRING', description: 'nome da lista (Casa, Trabalho...), opcional' } }, required: ['filtro'] } },
+  { name: 'listar_contas', description: 'Contas/boletos. status: abertas (todas a pagar), atrasadas (vencidas e não pagas), pagas, todas. de/ate filtram o vencimento.', parameters: { type: 'OBJECT', properties: { status: { type: 'STRING', enum: ['abertas', 'atrasadas', 'pagas', 'todas'] }, de: { type: 'STRING' }, ate: { type: 'STRING' } }, required: ['status'] } },
+  { name: 'criar_sugestao', description: 'Propõe criar algo (o app pede confirmação antes de gravar). Use só quando o usuário pedir para criar/anotar/marcar/lembrar.', parameters: { type: 'OBJECT', properties: {
+    tipo: { type: 'STRING', enum: ['tarefa', 'compromisso', 'conta', 'lembrete', 'compras'] }, titulo: { type: 'STRING' }, data: { type: 'STRING', description: 'AAAA-MM-DD' }, hora: { type: 'STRING', description: 'HH:MM' },
+    valor: { type: 'NUMBER' }, prioridade: { type: 'STRING', enum: ['alta', 'media', 'baixa'] }, itens: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['tipo', 'titulo'] } }
+] }];
+function json1(v, n) { try { var s = JSON.stringify(v === undefined ? {} : v); return s.length <= n ? JSON.parse(s) : null; } catch (e) { return null; } }
+/* turnos do app -> contents do Gemini (puro, testável). Turno: {r:'user'|'model', t} | {r:'model', fc:[{n,a,s}]} | {r:'tool', fr:[{n,res}]} */
+export function montarGemini(corpo) {
+  var ts = Array.isArray(corpo && corpo.turnos) ? corpo.turnos.slice(-MAX_TURNOS) : [], out = [];
+  ts.forEach(function (x) {
+    if (!x) return;
+    if ((x.r === 'user' || x.r === 'model') && typeof x.t === 'string' && x.t.trim()) out.push({ role: x.r, parts: [{ text: txt(x.t, MAX_TXT) }] });
+    else if (x.r === 'model' && Array.isArray(x.fc) && x.fc.length) out.push({ role: 'model', parts: x.fc.slice(0, 6).map(function (c) { var p = { functionCall: { name: txt(c.n, 40), args: json1(c.a, 4000) || {} } }; if (typeof c.s === 'string' && c.s) p.thoughtSignature = c.s.slice(0, 20000); return p; }) });
+    else if (x.r === 'tool' && Array.isArray(x.fr) && x.fr.length) out.push({ role: 'user', parts: x.fr.slice(0, 6).map(function (c) { return { functionResponse: { name: txt(c.n, 40), response: json1(c.res, 20000) || { erro: 'resultado grande demais' } } }; }) });
+  });
+  while (out.length && out[0].role !== 'user') out.shift();
+  if (!out.length) return null;
+  var hoje = txt(corpo.hoje, 160);
+  return { systemInstruction: { parts: [{ text: SISTEMA_G + (hoje ? '\nHoje é ' + hoje + '.' : '') }] }, contents: out, tools: FERRAMENTAS,
+    toolConfig: { functionCallingConfig: { mode: 'AUTO' } }, generationConfig: { temperature: 0.2, maxOutputTokens: 700, thinkingConfig: { thinkingLevel: 'minimal' } } };
+}
+/* resposta do Gemini -> {chamadas:[{n,a,s}]} ou {resposta} (puro) */
+export function lerGemini(j) {
+  var c = j && j.candidates && j.candidates[0], parts = (c && c.content && c.content.parts) || [], fc = [], tx = [];
+  parts.forEach(function (p) { if (p.functionCall) fc.push({ n: p.functionCall.name, a: p.functionCall.args || {}, s: p.thoughtSignature || '' }); else if (p.text && !p.thought) tx.push(p.text); });
+  if (fc.length) return { chamadas: fc };
+  var t = tx.join('').trim();
+  return t ? { resposta: t } : null;
+}
+async function conversa(req, env, origem) {
+  if (!env.GEMINI_API_KEY) return resp({ erro: 'Gemini sem configuração.', fallback: true }, 503, origem);
+  if (Number(req.headers.get('Content-Length') || 0) > MAX_CONVERSA) return resp({ erro: 'Conversa grande demais.' }, 413, origem);
+  var bruto = await req.text();
+  if (bruto.length > MAX_CONVERSA) return resp({ erro: 'Conversa grande demais.' }, 413, origem);
+  var lim = limitar(req.headers.get('CF-Connecting-IP') || 'x', env);
+  if (lim) return resp({ erro: lim, fallback: true }, 429, origem);
+  var corpo; try { corpo = JSON.parse(bruto); } catch (e) { return resp({ erro: 'JSON inválido.' }, 400, origem); }
+  var envio = montarGemini(corpo); bruto = '';
+  if (!envio) return resp({ erro: 'Envie uma pergunta.' }, 400, origem);
+  var modelos = [env.GEMINI_MODELO || GEMINI_PADRAO, GEMINI_RESERVA], ult = 0;
+  for (var i = 0; i < modelos.length; i++) {
+    var r, ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 20000);
+    try { r = await fetch(GEMINI_API + modelos[i] + ':generateContent', { method: 'POST', headers: { 'x-goog-api-key': env.GEMINI_API_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(envio), signal: ctl.signal }); }
+    catch (e) { clearTimeout(tm); ult = 504; continue; }
+    clearTimeout(tm);
+    if (!r.ok) { ult = r.status; if (r.status === 429 || r.status >= 500) continue; return resp({ erro: 'O Gemini respondeu com erro (' + r.status + ').', fallback: true }, 502, origem); }
+    var j; try { j = await r.json(); } catch (e) { ult = 502; continue; }
+    var o = lerGemini(j);
+    if (!o) return resp({ erro: 'O Gemini não respondeu.', fallback: true }, 502, origem);
+    o.modelo = modelos[i]; return resp(o, 200, origem);
+  }
+  return resp({ erro: ult === 429 ? 'Limite gratuito do Gemini atingido.' : 'O Gemini está indisponível agora.', fallback: true }, ult === 429 ? 429 : 502, origem);
+}
 export function config() { return { PARAMS: PARAMS, SISTEMA: SISTEMA }; }  /* só funções exportadas: o runtime recusa export de valores */
 export default {
   async fetch(req, env) {
     var url = new URL(req.url), origem = req.headers.get('Origin') || '';
-    if (url.pathname === '/saude') return resp({ ok: true, modelo: MODELO, visao: MODELO_VISAO }, 200, origem);
+    if (url.pathname === '/saude') return resp({ ok: true, modelo: MODELO, visao: MODELO_VISAO, conversa: env.GEMINI_MODELO || GEMINI_PADRAO, gemini: !!env.GEMINI_API_KEY }, 200, origem);
     if (req.method === 'OPTIONS') return new Response(null, { status: ORIGENS.indexOf(origem) >= 0 ? 204 : 403, headers: cors(origem) });
-    if (url.pathname !== '/chat' && url.pathname !== '/ler') return resp({ erro: 'Rota não encontrada.' }, 404, origem);
+    if (url.pathname !== '/chat' && url.pathname !== '/ler' && url.pathname !== '/conversa') return resp({ erro: 'Rota não encontrada.' }, 404, origem);
     if (req.method !== 'POST') return resp({ erro: 'Use POST.' }, 405, origem);
     if (ORIGENS.indexOf(origem) < 0) return resp({ erro: 'Origem não permitida.' }, 403, origem);
+    if (url.pathname === '/conversa') return conversa(req, env, origem);
     if (!env.LIQUID_API_KEY) return resp({ erro: 'Assistente sem configuração.' }, 503, origem);
     if (url.pathname === '/ler') return ler(req, env, origem);
     if (Number(req.headers.get('Content-Length') || 0) > MAX_CORPO) return resp({ erro: 'Pergunta grande demais.' }, 413, origem);
     var bruto = await req.text();
     if (bruto.length > MAX_CORPO) return resp({ erro: 'Pergunta grande demais.' }, 413, origem);
-    var lim = limitar(req.headers.get('CF-Connecting-IP') || 'x');
+    var lim = limitar(req.headers.get('CF-Connecting-IP') || 'x', env);
     if (lim) return resp({ erro: lim }, 429, origem);
     var corpo; try { corpo = JSON.parse(bruto); } catch (e) { return resp({ erro: 'JSON inválido.' }, 400, origem); }
     var envio = montarCorpo(corpo);

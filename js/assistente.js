@@ -1,11 +1,11 @@
-/* Assistente (Liquid AI LFM3-1.7B via Worker minha-casa-assistente): perguntas sobre contas, tarefas e agenda.
-   Envia um RESUMO dos dados (sem faturas detalhadas, sem cartões). Nada é gravado sem confirmação. byGui */
+/* Assistente (Gemini com ferramentas locais via Worker minha-casa-assistente /conversa; fotos: LFM3-VL): perguntas sobre contas, tarefas e agenda.
+   O modelo só vê o que as ferramentas devolvem (sem faturas detalhadas, sem cartões, sem itens de exemplo). Nada é gravado sem confirmação. byGui */
 (function (g) {
   'use strict';
   var PS = g.PS = g.PS || {};
-  var U = PS.u, h = U.h, I = PS.icone, S = PS.store, C = PS.consultas;
+  var U = PS.u, h = U.h, I = PS.icone, S = PS.store, C = PS.consultas, G = PS.gemini;
   var BASE = g.MCO_ASSISTENTE_URL || 'https://minha-casa-assistente.guilhermeromionetto.workers.dev';
-  var URL_API = BASE + '/chat', URL_LER = BASE + '/ler';
+  var URL_LER = BASE + '/ler', URL_CONVERSA = BASE + '/conversa';
   var LADO_MAX = 1280, MAX_DATAURL = 1400000;   /* a foto é reduzida no aparelho e nunca é guardada */
   var conversa = [];   /* { papel: 'user'|'assistant', texto, sugestao } só na memória da aba */
   var enviando = false;
@@ -59,7 +59,7 @@
   function gravar(x) {
     S.alterar(function (s) {
       var it;
-      if (x.tipo === 'tarefa') { it = S.sanearItem('tarefas', null, { titulo: x.titulo, vence: x.data, lista: s.listas[0], prio: 'media' }); if (it) s.tarefas.push(it); }
+      if (x.tipo === 'tarefa') { it = S.sanearItem('tarefas', null, { titulo: x.titulo, vence: x.data, lista: s.listas[0], prio: x.prio || 'media' }); if (it) s.tarefas.push(it); }
       else if (x.tipo === 'conta') { it = S.sanearItem('contas', null, { titulo: x.titulo, mensal: false, data: x.vence, dia: +x.vence.slice(8, 10), valor: x.valor }); if (it) s.contas.push(it); }
       else { it = S.sanearItem('compromissos', null, { titulo: x.titulo, data: x.data, hora: x.hora, fonte: 'manual' }); if (it) s.compromissos.push(it); }
     });
@@ -84,7 +84,7 @@
         it = S.sanearItem('lembretes', null, { titulo: d.titulo, dia: 0, obs: d.obs, prio: 'media' }); if (it) s.lembretes.push(it);
       } else if (sg.acao === 'tarefa') {
         if (s.tarefas.some(function (t) { return !t.feita && t.titulo.toLowerCase() === d.titulo.toLowerCase(); })) { res = 'Já existe essa tarefa pendente.'; return; }
-        it = S.sanearItem('tarefas', null, { titulo: d.titulo, lista: s.listas[0], prio: 'media' }); if (it) s.tarefas.push(it);
+        it = S.sanearItem('tarefas', null, { titulo: d.titulo, lista: s.listas[0], prio: x.prio || 'media' }); if (it) s.tarefas.push(it);
       } else if (sg.acao === 'gasto') {
         /* gasto avulso (cupom fiscal): lançamento sem cartão, fatura 'avulso' */
         if (s.lancs.some(function (l) { return l.fatura === 'avulso' && l.data === d.data && l.valor === d.valor && l.desc === d.titulo.slice(0, 80); })) { res = 'Esse cupom já foi lançado. Nada foi gravado.'; return; }
@@ -180,31 +180,46 @@
     }
     function hojeTexto() { var hj = U.hoje(), am = U.somaDias(hj, 1); return U.DIAS[U.dowIso(hj)] + ', ' + hj.slice(8, 10) + '/' + hj.slice(5, 7) + '/' + hj.slice(0, 4) + ' (' + hj + '); amanhã é ' + U.DIAS[U.dowIso(am)] + ', ' + am.slice(8, 10) + '/' + am.slice(5, 7) + ' (' + am + ')'; }
     function responderLocal(txt) { conversa.push({ papel: 'assistant', texto: txt, local: true }); }
-    /* rapida=true: pergunta pronta, respondida 100% pelo app, sem modelo */
+    /* rapida=true: pergunta pronta, respondida 100% pelo app, sem modelo.
+       Texto livre: Gemini com ferramentas que rodam AQUI (dados reais, sem exemplo); se o Gemini falhar, resposta determinística com aviso. */
     function enviar(texto, rapida) {
       texto = String(texto || '').trim(); if (!texto || enviando) return;
+      var memo = G.memoria(conversa);
       conversa.push({ papel: 'user', texto: texto }); campo.value = '';
-      var hj = U.hoje(), q = C.classificar(texto, hj), fechada = q ? C.responder(q, dadosConsulta()) : null;
-      /* consultas reconhecidas (tarefas, contas, agenda) são respondidas SEMPRE pelo app, sem modelo */
-      if (fechada) { responderLocal(fechada.texto); desenhar(); return; }
+      var hj = U.hoje(), dd = dadosConsulta();
+      if (rapida) { var q = C.classificar(texto, hj), fechada = q ? C.responder(q, dd) : null; if (fechada) { responderLocal(fechada.texto); desenhar(); return; } }
       enviando = true; desenhar();
-      var ctx = fechada ? 'LISTA FECHADA (estes são TODOS os itens; reformule só esta lista, não acrescente nada):\n' + fechada.texto : contexto();
-      var permitido = fechada ? fechada.permitido : C.permitidoResposta(ctx, texto, hj);
-      var hist = fechada ? [{ papel: 'user', texto: texto }] : conversa.filter(function (m) { return !m.local; }).slice(-10).map(function (m) { return { papel: m.papel, texto: m.texto.slice(0, 4000) }; });
-      fetch(URL_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mensagens: hist, contexto: ctx, hoje: hojeTexto() }) })
-        .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
-        .then(function (j) {
-          if (j && j.resposta) {
-            var p = separar(C.limpar(j.resposta), C.pedeCriar(texto));
-            if (fechada) { if (p.texto && C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto }); else responderLocal(fechada.texto); }
-            else if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: C.textoFinal(p.texto, p.sugestao ? 'Posso anotar isto:' : ''), sugestao: p.sugestao });
-            else responderLocal('Não encontrei isso nos dados do app. Pergunte, por exemplo, o que vence essa semana ou o que tem na agenda amanhã.');
-          }
-          else conversa.push({ papel: 'assistant', texto: 'Não consegui responder: ' + ((j && j.erro) || 'erro desconhecido') });
-        })
-        .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: (navigator.onLine === false ? 'Você está sem internet agora. Conecte e tente de novo.' : 'Não consegui falar com o ajudante (servidor indisponível ou bloqueio de rede). Tente de novo.') }); })
-        .then(function () { enviando = false; desenhar(); campo.focus(); });
+      var turnos = memo.concat([{ r: 'user', t: texto }]), resultados = [], sug = null, rodada = 0;
+      var pedidos = [texto].concat(memo.filter(function (m) { return m.r === 'user'; }).slice(-1).map(function (m) { return m.t; }));
+      function reserva(motivo) { responderLocal(G.reserva(texto, dd, hj, motivo)); }
+      function fim() { enviando = false; desenhar(); campo.focus(); }
+      function passo() {
+        rodada++;
+        fetch(URL_CONVERSA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnos: turnos, hoje: hojeTexto() }) })
+          .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.', fallback: true }; }); })
+          .then(function (j) {
+            if (j && j.chamadas && j.chamadas.length && rodada < 5) {
+              var fr = j.chamadas.map(function (c) {
+                var res;
+                if (c.n === 'criar_sugestao') { var o = G.sugestao(c.a, pedidos, hj); if (o.sugestao) sug = o.sugestao; res = o.resultado || { erro: o.erro }; }
+                else res = G.executar(c.n, c.a, dd, hj, agoraHHMM());
+                resultados.push(res); return { n: c.n, res: res };
+              });
+              turnos.push({ r: 'model', fc: j.chamadas }); turnos.push({ r: 'tool', fr: fr });
+              status.textContent = 'Consultando os dados do app…'; passo(); return;
+            }
+            if (j && j.resposta) {
+              var perm = G.permitido(resultados.concat(sug ? [sug] : [], memo), hj), f = G.finalizar(j.resposta, perm);
+              if (f.fiel) conversa.push({ papel: 'assistant', texto: C.textoFinal(f.texto, sug ? 'Posso anotar isto:' : ''), sugestao: sug });
+              else reserva('citou algo que não está nos seus dados, então descartei a resposta');
+            } else reserva(j && j.erro ? (/limite/i.test(j.erro) ? 'atingiu o limite gratuito agora' : 'está indisponível agora') : 'não respondeu');
+            fim();
+          })
+          .catch(function () { if (navigator.onLine === false) responderLocal('Você está sem internet agora. ' + G.reserva(texto, dd, hj, 'precisa de internet')); else reserva('não respondeu (falha de conexão)'); fim(); });
+      }
+      passo();
     }
+    function agoraHHMM() { var d = new Date(); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
     /* câmera (capture) e galeria/prints (sem capture: no celular, capture abre só a câmera) */
     var arquivo = h('input', { type: 'file', accept: 'image/*', capture: 'environment', class: 'ass-arquivo', id: 'ass-foto', 'data-fid': 'ass-foto', 'aria-label': 'Tirar foto de boleto, comprovante, convite, lista ou cupom' });
     var galeria = h('input', { type: 'file', accept: 'image/*', class: 'ass-arquivo', id: 'ass-print', 'data-fid': 'ass-print', 'aria-label': 'Escolher print ou imagem da galeria' });
@@ -265,7 +280,7 @@
         return h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(q, true); } }, q);
       }));
     raiz.appendChild(h('section', { class: 'cartao' }, h('h2', null, I('estrela'), h('span', null, 'Ajudante da casa')), h('p', { class: 'ass-intro' }, 'Oi! Sou o ajudante geral do app. Posso ajudar com contas e vencimentos, agenda, tarefas e lembretes: pergunte o que vence, o que está atrasado ou o que tem para amanhã. Também leio foto ou print de boleto, comprovante, acordo, convite, lista ou cupom fiscal. Se você pedir para anotar algo, eu sugiro e você confirma antes de gravar.'), atalhos, lista, status, form,
-      h('p', { class: 'ass-nota' }, 'Usa o modelo LFM3-1.7B da Liquid AI. Um resumo de contas, tarefas e agenda sai deste aparelho só quando você pergunta; faturas detalhadas e cartões não são enviados. Fotos e prints são lidos pelo LFM3-VL-2B: a imagem é reduzida neste aparelho, enviada só para a leitura e não é guardada. Respostas podem errar: confira antes de pagar.')));
+      h('p', { class: 'ass-nota' }, 'As perguntas são respondidas pelo Gemini (Google), no plano gratuito: o Google pode usar o que é enviado para melhorar os modelos dele. Vão só a sua pergunta, as últimas mensagens e os itens de contas, tarefas e agenda que ele consultar; faturas detalhadas e cartões não são enviados. Não pergunte nada sigiloso. Fotos e prints são lidos pelo LFM3-VL-2B: a imagem é reduzida neste aparelho, enviada só para a leitura e não é guardada. Respostas podem errar: confira antes de pagar.')));
     desenhar();
     return raiz;
   }
