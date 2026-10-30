@@ -19,17 +19,17 @@ SEED = """PS.store.alterar(function(s){var h=PS.u.hoje(),m0=PS.u.ym(h),M=functio
   {id:'c2',titulo:'Internet',mensal:true,dia:Number(h.slice(8)),valor:119.9,pagas:(function(){var o={};o[M(-2)]=D(-2,10);o[M(-1)]=D(-1,10);return o;})(),valores:{},cat:'casa',dono:'',icone:'carteira',desde:M(-2)},
   {id:'c3',titulo:'Condomínio',mensal:true,dia:28,valor:640,pagas:(function(){var o={};o[M(-2)]=D(-2,27);o[M(-1)]=D(-1,28);return o;})(),valores:{},cat:'casa',dono:'',icone:'carteira',desde:M(-2)},
   {id:'c4',titulo:'Casinha nova do Bilu',mensal:false,data:PS.u.somaDias(h,4),valor:289.9,paga:false,pagas:{},valores:{},cat:'pet',dono:'',icone:'casa-de-cachorro'}];
- s.faturas=[];s.cartoes=[];s.lancs=[];s.lembretes=[];},true);"""
+ s.faturas=[];s.cartoes=[];s.lancs=[];},true);"""
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=a.chrome) if a.chrome else p.chromium.launch()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, accept_downloads=True)
     pg = ctx.new_page(); pg.on('pageerror', lambda e: print('ERRO', e))
     def foto(nome, full=False): pg.wait_for_timeout(1300); pg.screenshot(path=str(out / nome), full_page=full); print('ok', nome)
     pg.goto(base + '#/'); pg.wait_for_selector('.hoje'); pg.evaluate(SEED)
-    pg.evaluate("location.hash='#/familia'"); pg.wait_for_timeout(300); pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(500); foto('01-hoje.png')
-    pg.evaluate("location.hash='#/familia'"); pg.wait_for_timeout(500); foto('02-familia-em-aberto.png', True)
-    pg.evaluate("location.hash='#/familia'"); pg.wait_for_selector('[data-fid]'); 
-    try: pg.locator('.abas button:has-text("Histórico"), button:has-text("Histórico")').first.click(); foto('03-familia-historico.png', True)
+    pg.evaluate("location.hash='#/contas'"); pg.wait_for_timeout(300); pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(500); foto('01-hoje.png')
+    pg.evaluate("location.hash='#/contas'"); pg.wait_for_timeout(500); foto('02-contas-em-aberto.png', True)
+    pg.evaluate("location.hash='#/contas'"); pg.wait_for_selector('[data-fid]'); 
+    try: pg.locator('.abas button:has-text("Histórico"), button:has-text("Histórico")').first.click(); foto('03-contas-historico.png', True)
     except Exception as e: print('sem aba histórico', e)
     pg.evaluate("location.hash='#/cartoes'"); pg.wait_for_selector('.cartoes')
     for i, nome in enumerate(['nubank-sintetico.pdf', 'itau-sintetico.pdf']):

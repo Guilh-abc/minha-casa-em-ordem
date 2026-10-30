@@ -9,7 +9,7 @@
   var VOLTAR = { Escape: 1, Esc: 1, GoBack: 1, BrowserBack: 1, Backspace: 1, 27: 1, 8: 1, 4: 1, 461: 1, 10009: 1 };
   var MENU = { ContextMenu: 1, Menu: 1, 93: 1, 82: 1 };
   var saidaPendente = 0;
-  var ROTAS_ATALHO = ['', 'rotina', 'tarefas', 'agenda', 'familia', 'relaxar', 'gerenciar'];
+  var ROTAS_ATALHO = ['', 'tarefas', 'agenda', 'compras', 'contas', 'cartoes', 'relaxar', 'gerenciar'];
 
   function visivel(el) {
     if (el.disabled || el.getAttribute('aria-hidden') === 'true') return false;
@@ -122,7 +122,7 @@
       e.preventDefault(); voltar(); return;
     }
     if (!edit && (MENU[k] || MENU[c])) { e.preventDefault(); focarMenu(); return; }   /* 82 = tecla R: só vale fora de campo de texto */
-    if (!edit && !e.shiftKey && /^[1-7]$/.test(k || '')) { var r = ROTAS_ATALHO[+k - 1]; g.location.hash = '#/' + r; }
+    if (!edit && !e.shiftKey && /^[1-8]$/.test(k || '')) { var r = ROTAS_ATALHO[+k - 1]; g.location.hash = '#/' + r; }
   }
   document.addEventListener('keydown', aoTecla, true);
 

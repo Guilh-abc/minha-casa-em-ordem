@@ -18,7 +18,7 @@
   var PRIORIDADES = ['alta', 'media', 'baixa'];
 
   function vazio() {
-    return { app: 'minha-casa-em-ordem', versao: VERSAO, config: copia(PADRAO_CONFIG), habitos: [], listas: ['Casa', 'Trabalho', 'Maria Alice'], tarefas: [], compromissos: [], lembretes: [], contas: [], links: [], foco: [], cartoes: [], faturas: [], lancs: [], regras: [], radios: [], passeios: [], programa: [], compras: [], checks: {} };
+    return { app: 'minha-casa-em-ordem', versao: VERSAO, config: copia(PADRAO_CONFIG), listas: ['Casa', 'Trabalho', 'Maria Alice'], tarefas: [], compromissos: [], contas: [], links: [], foco: [], cartoes: [], faturas: [], lancs: [], regras: [], radios: [], passeios: [], programa: [], compras: [] };
   }
   function copia(o) { return JSON.parse(JSON.stringify(o)); }
   function str(v, n) { return U.limitar(v == null ? '' : String(v).replace(/[\u0000-\u001f]/g, ' '), n || 120).trim(); }
@@ -60,9 +60,6 @@
       antecedencia: antecOk(c.antecedencia), notificar: c.notificar === true, orcamento: c.orcamento == null || c.orcamento === '' ? null : num(c.orcamento, 0, 1e8, null),
       fixasAuto: c.fixasAuto === true, fixasAviso: c.fixasAviso === true
     };
-    s.habitos = arr(o.habitos).slice(0, 30).map(function (x) {
-      return { id: id(x), nome: str(x.nome, 40) || 'Hábito', icone: PS.iconesLista.indexOf(x.icone) >= 0 ? x.icone : 'check', exemplo: !!x.exemplo };
-    });
     s.listas = arr(o.listas).slice(0, 12).map(function (x) { return str(typeof x === 'string' ? x : (x && x.nome), 30); }).filter(Boolean);
     if (!s.listas.length) s.listas = ['Casa', 'Trabalho', 'Maria Alice'];
     s.tarefas = arr(o.tarefas).slice(0, 400).map(function (x) {
@@ -70,12 +67,6 @@
     });
     s.compromissos = arr(o.compromissos).slice(0, 600).filter(function (x) { return U.dataValida(x.data); }).map(function (x) {
       return { id: id(x), titulo: str(x.titulo, 120) || 'Compromisso', data: x.data, hora: U.horaValida(x.hora) ? x.hora : '', local: str(x.local, 80), fonte: x.fonte === 'ics' ? 'ics' : 'manual', dono: donoOk(x.dono), exemplo: !!x.exemplo };
-    });
-    s.lembretes = arr(o.lembretes).slice(0, 60).map(function (x) {
-      var feitos = {}; if (x.feitos && typeof x.feitos === 'object') Object.keys(x.feitos).slice(0, 36).forEach(function (k) { if (/^\d{4}-\d{2}$/.test(k) && x.feitos[k]) feitos[k] = true; });
-      /* dia 0 = pendência sem data (um "a fazer" que fica até ser marcado como feito) */
-      return { id: id(x), titulo: str(x.titulo, 100) || 'Lembrete', dia: Math.round(num(x.dia, 0, 31, 1)), obs: str(x.obs || x.nota, 160), feitos: feitos, feito: !!x.feito,
-        prio: PRIORIDADES.indexOf(x.prio) >= 0 ? x.prio : 'media', categoria: str(x.categoria, 30), icone: PS.iconeFamiliaOk(x.icone) ? x.icone : '', exemplo: !!x.exemplo };
     });
     s.contas = arr(o.contas).slice(0, 80).map(function (x) {
       /* pagas[mês] = true (pago, sem data) ou 'AAAA-MM-DD' (data do pagamento, manual) */
@@ -121,11 +112,7 @@
     s.compras = arr(o.compras).slice(0, 300).map(function (x) {
       return { id: id(x), nome: str(x.nome, 80) || 'Item', preco: x.preco == null || x.preco === '' ? null : num(x.preco, 0, 1e6, null), unidade: str(x.unidade, 20), local: str(x.local, 60), comprado: !!x.comprado, exemplo: false };
     });
-    if (o.checks && typeof o.checks === 'object') {
-      Object.keys(o.checks).forEach(function (k) {
-        if (U.dataValida(k) && Array.isArray(o.checks[k])) s.checks[k] = o.checks[k].filter(function (v) { return typeof v === 'string'; }).slice(0, 40);
-      });
-    }
+    /* lembretes, hábitos (rotina) e checks foram removidos do app: backups antigos importam e essas partes são descartadas */
     return s;
   }
 
@@ -140,14 +127,7 @@
 
   /* Migrações únicas de conteúdo: cada uma roda uma só vez por navegador (lista em localStorage 'painelsala.migracoes')
      e nunca recria um item que o usuário apagou depois. Idempotentes (conferem o id antes de inserir). */
-  var ID_BILU = 'lembrete-bilu-casinha';
-  var MIGRACOES_UNICAS = [
-    { id: '2026-10-bilu-casinha', aplicar: function (s) {
-      if (s.lembretes.some(function (l) { return l.id === ID_BILU; })) return false;
-      s.lembretes.unshift({ id: ID_BILU, titulo: 'Comprar casinha maior para o Bilu', dia: 0, obs: 'A atual ficou pequena. Comprar uma maior.', feitos: {}, feito: false, prio: 'alta', categoria: 'Pet / Família', icone: 'casa-de-cachorro', exemplo: false });
-      return true;
-    } }
-  ];
+  var MIGRACOES_UNICAS = [];   /* a do lembrete do Bilu saiu junto com os lembretes */
   function lerMigracoes() { try { var l = JSON.parse(localStorage.getItem(CHAVE_MIG) || '[]'); return Array.isArray(l) ? l : []; } catch (e) { return []; } }
   function gravarMigracoes(l) { try { localStorage.setItem(CHAVE_MIG, JSON.stringify(l)); } catch (e) { /* ok */ } }
   function marcarTodasMigracoes() { gravarMigracoes(MIGRACOES_UNICAS.map(function (m) { return m.id; })); }
@@ -177,10 +157,9 @@
     o.tarefas = arr(o.tarefas).map(function (t) { t.vence = t.dias == null ? '' : U.somaDias(hoje, t.dias); return t; });
     o.compromissos = arr(o.compromissos).map(function (c) { c.data = U.somaDias(hoje, c.dias || 0); return c; });
     o.contas = arr(o.contas).map(function (c) { var d = U.somaDias(hoje, c.diasAteVencer || 0); c.dia = +d.slice(8, 10); return c; });
-    var s = sanear(o); s.checks = {};
+    var s = sanear(o);
     var m0 = U.ym(hoje), d0 = +hoje.slice(8);
     s.contas.forEach(function (c) { if (c.mensal && c.exemplo && c.dia < d0) c.pagas[m0] = true; });       /* exemplos não nascem "atrasados" */
-    s.lembretes.forEach(function (l) { if (l.exemplo && l.dia < d0) l.feitos[m0] = true; });
     return s;
   }
 
@@ -207,7 +186,7 @@
     aplicarRemoto: function (fn) { semHook++; try { fn(estado); persistir(); } finally { semHook--; } notificar(); },
     aoGravar: function (f) { hooksGravar.push(f); },
     sanearItem: function (c, id, d) {
-      if (c === 'checks') return d === 1 ? 1 : null;
+      if (c === 'checks' || c === 'lembretes' || c === 'habitos') return null;   /* aparelho antigo ainda pode mandar: aceita e ignora */
       if (c === 'meta') {
         if (id === 'config') { var cf = copia(estado.config); Object.keys(d || {}).forEach(function (k) { cf[k] = d[k]; }); return sanear({ config: cf }).config; }
         if (id === 'listas') return Array.isArray(d) ? sanear({ listas: d }).listas : null;
@@ -221,10 +200,8 @@
     /* altera e salva; quem chama pode passar silencioso=true para não re-renderizar */
     alterar: function (fn, silencioso) { fn(estado); persistir(); if (!silencioso) notificar(); },
     aoMudar: function (f) { ouvintes.push(f); return function () { ouvintes = ouvintes.filter(function (x) { return x !== f; }); }; },
-    substituir: function (o, mantemChecks) {
-      var checks = estado ? estado.checks : {};
+    substituir: function (o) {
       estado = sanear(migrar(o));
-      if (mantemChecks) estado.checks = checks;
       persistir(); notificar();
     },
     apagarTudo: function (urlSemente) {
@@ -234,11 +211,11 @@
     },
     limparExemplos: function () {
       store.alterar(function (s) {
-        ['habitos', 'tarefas', 'compromissos', 'lembretes', 'contas', 'links', 'foco'].forEach(function (k) { s[k] = s[k].filter(function (x) { return !x.exemplo; }); });
+        ['tarefas', 'compromissos', 'contas', 'links', 'foco'].forEach(function (k) { s[k] = s[k].filter(function (x) { return !x.exemplo; }); });
       });
     },
     temExemplos: function () {
-      var s = estado; return ['habitos', 'tarefas', 'compromissos', 'lembretes', 'contas', 'links', 'foco'].some(function (k) { return s[k].some(function (x) { return x.exemplo; }); });
+      var s = estado; return ['tarefas', 'compromissos', 'contas', 'links', 'foco'].some(function (k) { return s[k].some(function (x) { return x.exemplo; }); });
     },
     /* ---- backup JSON ---- */
     exportarJSON: function () { return JSON.stringify({ app: 'minha-casa-em-ordem', versao: VERSAO, exportadoEm: new Date().toISOString(), dados: estado }, null, 2); },
@@ -253,13 +230,11 @@
     /* ---- link de configuração (#/importar/<base64url>) ---- */
     montarPayload: function () {
       var s = copia(estado);
-      delete s.checks;
       s.tarefas = s.tarefas.filter(function (t) { return !t.feita; });
-      ['habitos', 'tarefas', 'compromissos', 'lembretes', 'contas', 'links', 'foco'].forEach(function (k) {
-        s[k] = s[k].map(function (x) { delete x.exemplo; if (k !== 'habitos') delete x.id; if (k === 'tarefas') delete x.feita; if (k === 'compromissos' && x.fonte === 'manual') delete x.fonte; return x; });
+      ['tarefas', 'compromissos', 'contas', 'links', 'foco'].forEach(function (k) {
+        s[k] = s[k].map(function (x) { delete x.exemplo; delete x.id; if (k === 'tarefas') delete x.feita; if (k === 'compromissos' && x.fonte === 'manual') delete x.fonte; return x; });
       });
       s.contas.forEach(function (c) { if (c.valor === null) delete c.valor; if (!c.data) delete c.data; if (!c.paga) delete c.paga; ['forma', 'obs', 'fixa', 'cartaoRef', 'anual', 'mes', 'arquivada'].forEach(function (k) { if (!c[k]) delete c[k]; }); if (c.pagas && !Object.keys(c.pagas).length) delete c.pagas; });
-      s.lembretes.forEach(function (c) { if (c.feitos && !Object.keys(c.feitos).length) delete c.feitos; if (!c.obs) delete c.obs; });
       return s;
     },
     gerarLink: function () {
@@ -274,23 +249,7 @@
       var o = JSON.parse(decodeURIComponent(escape(atob(t))));
       return o;
     },
-    sanear: sanear,
-    /* ---- hábitos ---- */
-    habitoFeito: function (hid, iso) { return (estado.checks[iso] || []).indexOf(hid) >= 0; },
-    alternarHabito: function (hid, iso) {
-      store.alterar(function (s) {
-        var l = s.checks[iso] || (s.checks[iso] = []); var i = l.indexOf(hid);
-        if (i >= 0) l.splice(i, 1); else l.push(hid);
-        if (!l.length) delete s.checks[iso];
-        var corte = U.somaDias(U.hoje(), -400);
-        Object.keys(s.checks).forEach(function (k) { if (k < corte) delete s.checks[k]; });
-      });
-    },
-    sequencia: function (hid) {
-      var d = U.hoje(); if (!store.habitoFeito(hid, d)) d = U.somaDias(d, -1);
-      var n = 0; while (n < 3650 && store.habitoFeito(hid, d)) { n++; d = U.somaDias(d, -1); }
-      return n;
-    }
+    sanear: sanear
   };
   PS.store = store;
 })(window);

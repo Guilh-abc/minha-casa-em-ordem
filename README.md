@@ -1,20 +1,21 @@
 # Minha Casa em Ordem
 
-App da família para o **celular**: rotina, tarefas, agenda, contas a pagar, **faturas do cartão (lidas do PDF no próprio aparelho)** e lembretes, com painéis visuais (rosca por categoria, barras por mês, anel pago × em aberto). **HTML + CSS + JS puro** (sem npm, sem build), funciona offline e instala na tela inicial (PWA).
+App da família para o **celular**: tarefas, agenda, lista de compra, contas a pagar, **faturas do cartão (lidas do PDF no próprio aparelho)** e avisos de vencimento, com painéis visuais (rosca por categoria, barras por mês, anel pago × em aberto). **HTML + CSS + JS puro** (sem npm, sem build), funciona offline e instala na tela inicial (PWA).
 
 - **App com login (use este):** https://minha-casa-em-ordem.guilhermeromionetto.workers.dev — hospedado na Cloudflare, atrás de login (2 contas administradoras).
 - **Cópia pública de código (GitHub Pages):** https://guilhermeromio-netto-prog.github.io/minha-casa-em-ordem/ — é só o código estático, **sem login e sem dados da família**; os dados ficam no aparelho de quem abre. Se não quiser essa cópia, desative em *Settings → Pages* do repositório.
 - Interface em português do Brasil. Rodapé **byGui**.
 
-> Dados que já vêm preenchidos (hábitos, tarefas, contas, links) são **exemplos editáveis**, sempre rotulados "exemplo".
+> Dados que já vêm preenchidos (tarefas, contas, links) são **exemplos editáveis**, sempre rotulados "exemplo".
 
 ## O que tem
 
 | Rota | O que mostra |
 |---|---|
-| `#/` Hoje | Hora, clima, **Atenção agora** (contas vencidas/a vencer, fatura aberta), compromissos, tarefas, hábitos |
-| `#/rotina` · `#/tarefas` · `#/agenda` | Hábitos com sequência; tarefas por lista; compromissos (manuais ou `.ics`) |
-| `#/familia` | Contas e lembretes: **Em aberto · Pagas · Histórico**, anel pago × em aberto, gráfico por mês, vencidas em destaque; **contas fixas sugeridas** com forma de pagamento (selo e filtro) — ver [docs/CONTAS-FIXAS.md](docs/CONTAS-FIXAS.md) |
+| `#/` Hoje | Hora, clima, **Atenção agora** (contas vencidas/a vencer, fatura aberta), compromissos, tarefas |
+| `#/tarefas` · `#/agenda` | Tarefas por lista; compromissos (manuais ou `.ics`) |
+| `#/compras` | **Lista de Compra**: itens da lista de compras (também por foto) |
+| `#/contas` | **Contas a pagar** (antiga Família; `#/familia` ainda abre aqui): **Em aberto · Pagas · Histórico**, anel pago × em aberto, gráfico por mês, vencidas em destaque; **contas fixas sugeridas** com forma de pagamento (selo e filtro); ver [docs/CONTAS-FIXAS.md](docs/CONTAS-FIXAS.md) |
 | `#/cartoes` | Cartões e faturas: envie o **PDF** da fatura → revisão → painel (rosca por categoria, barras por mês, comparação com o mês anterior, busca, CSV) |
 | `#/sincronizar` | Sincronização opcional **cifrada de ponta a ponta** entre os celulares |
 | `#/gerenciar` | Editar tudo, ajustes, backup JSON, link de configuração, bloqueio do app |

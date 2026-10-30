@@ -3,7 +3,7 @@
   'use strict';
   var PS = g.PS = g.PS || {};
   var U = PS.u, S = PS.store;
-  var ROTAS = ['', 'rotina', 'tarefas', 'agenda', 'familia', 'cartoes', 'relaxar', 'gerenciar', 'assistente', 'compras', 'importar', 'instalar', 'sincronizar'];
+  var ROTAS = ['', 'tarefas', 'agenda', 'compras', 'contas', 'cartoes', 'relaxar', 'gerenciar', 'assistente', 'compras', 'importar', 'instalar', 'sincronizar'];
   var viewAtual = null, paramAtual = '';
   var principal = function () { return document.getElementById('app'); };
 
@@ -18,7 +18,8 @@
   function lerHash() {
     var m = /^#\/([^\/?]*)(?:\/(.*))?$/.exec(g.location.hash || '');
     var rota = m ? decodeURIComponent(m[1]) : '';
-    if (ROTAS.indexOf(rota) < 0) rota = '';
+    if (rota === 'familia') rota = 'contas';            /* links antigos (atalho do app, notificações) */
+    if (ROTAS.indexOf(rota) < 0) rota = '';             /* inclui a antiga #/rotina, que saiu do app */
     return { rota: rota, param: m && m[2] ? m[2] : '' };
   }
 

@@ -1,7 +1,7 @@
 {
   "name": "Minha Casa em Ordem",
   "short_name": "Casa em Ordem",
-  "description": "Rotina, tarefas, agenda, contas e faturas do cartão da família, no celular. byGui.",
+  "description": "Tarefas, agenda, lista de compra, contas e faturas do cartão da família, no celular. byGui.",
   "lang": "pt-BR",
   "dir": "ltr",
   "id": "./",
@@ -20,7 +20,7 @@
   ],
   "shortcuts": [
     { "name": "Hoje", "short_name": "Hoje", "url": "./?origem=atalho#/", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
-    { "name": "Contas e vencimentos", "short_name": "Contas", "url": "./?origem=atalho#/familia", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Contas e vencimentos", "short_name": "Contas", "url": "./?origem=atalho#/contas", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
     { "name": "Fatura do cartão", "short_name": "Fatura", "url": "./?origem=atalho#/cartoes", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
   ]
 }

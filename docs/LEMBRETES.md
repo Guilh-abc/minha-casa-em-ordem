@@ -3,7 +3,7 @@
 O que o app faz e o que **não** faz, sem prometer o impossível.
 
 ## O que funciona
-- **Com o app aberto:** a seção **Atenção agora** (tela Hoje) e o emblema do menu *Família* mostram contas vencidas, a vencer em 0–3 dias e faturas abertas. Nada depende de internet.
+- **Com o app aberto:** a seção **Atenção agora** (tela Hoje) e o emblema do menu *Contas a pagar* mostram contas vencidas, a vencer em 0–3 dias e faturas abertas. Nada depende de internet.
 - **Notificação do sistema (opcional):** em *Gerenciar → Ajustes*, ligue os avisos e autorize as notificações. O app avisa **3 dias antes, 1 dia antes e no dia**, 1 vez cada, e as **vencidas** 1 vez por dia, nunca de madrugada (só depois das 8 h, horário de São Paulo). Cada aviso é registrado para não repetir (`painelsala.lembretes.enviados`).
 - **Adicionar ao calendário (.ics):** gera um evento com alarme (VALARM) por antecedência. **É o jeito confiável**: o alarme fica no calendário do celular e toca mesmo com o app fechado.
 

@@ -152,7 +152,7 @@
   function cancelarEntrada() { var p = pendente; pendente = null; if (p) return revogarToken(p.dados.token); return Promise.resolve(); }
   function temDadosProprios() {
     var s = S.get(), n = 0;
-    ['habitos', 'tarefas', 'compromissos', 'lembretes', 'contas', 'links', 'foco', 'cartoes', 'faturas', 'lancs', 'regras', 'radios', 'passeios', 'programa', 'compras'].forEach(function (c) { (s[c] || []).forEach(function (x) { if (!x.exemplo) n++; }); });
+    ['tarefas', 'compromissos', 'contas', 'links', 'foco', 'cartoes', 'faturas', 'lancs', 'regras', 'radios', 'passeios', 'programa', 'compras'].forEach(function (c) { (s[c] || []).forEach(function (x) { if (!x.exemplo) n++; }); });
     return n > 0;
   }
   /* modo: 'juntar' (padrão) ou 'familia' (descarta os dados deste aparelho e usa só os da família) */
@@ -163,7 +163,7 @@
       N.COLECOES.forEach(function (c) {
         if (modo === 'familia') s[c] = []; else s[c] = (s[c] || []).filter(function (x) { return !x.exemplo; });
       });
-      if (modo === 'familia') { s.checks = {}; s.listas = vaz.listas; }
+      if (modo === 'familia') s.listas = vaz.listas;
     });
     salvarConexao(p.dados, { seq: 0, itens: {}, primeiro: true });
     return guardarChaves(p.chaves).then(function () { montarMotor(); return sincronizar('entrar'); }).then(function (r) { avisar(); return r; });
@@ -217,13 +217,12 @@
     if (!o || (o.formato !== 'minha-casa-backup-cifrado' && o.formato !== 'painel-sala-backup-cifrado') || !Array.isArray(o.itens)) return Promise.reject(new Error('Este arquivo não é um backup cifrado do Minha Casa em Ordem.'));
     var abre = usaRec ? C.abrirComRecuperacao(segredo, o.salt, o.env_rec) : C.abrirComSenha(segredo, o.salt, o.env_senha);
     return abre.then(function (k) {
-      var novo = S.sanear({}); novo.checks = {}; var tem = {};
+      var novo = S.sanear({}); var tem = {};
       return o.itens.reduce(function (p, it) {
         return p.then(function () {
           return C.decifrar(k, it.c, it.i, it.d).then(function (pl) {
             var dado = S.sanearItem(it.c, pl.i, pl.d); if (dado == null) return;
-            if (it.c === 'checks') { var q = pl.i.split('|'); (novo.checks[q[0]] = novo.checks[q[0]] || []).push(q[1]); }
-            else if (it.c === 'meta') { if (pl.i === 'config') { Object.keys(dado).forEach(function (kk) { if (N.CONFIG_LOCAL.indexOf(kk) < 0) novo.config[kk] = dado[kk]; }); } else novo.listas = dado; }
+            if (it.c === 'meta') { if (pl.i === 'config') { Object.keys(dado).forEach(function (kk) { if (N.CONFIG_LOCAL.indexOf(kk) < 0) novo.config[kk] = dado[kk]; }); } else novo.listas = dado; }
             else if (novo[it.c]) novo[it.c].push(dado);
           }, function () { /* item ilegível: ignora */ });
         });

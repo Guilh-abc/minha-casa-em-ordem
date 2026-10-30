@@ -6,7 +6,9 @@
 })(typeof window !== 'undefined' ? window : this, function () {
   'use strict';
   /* coleções-lista (itens com id). Nomes: 2–16 letras minúsculas (exigência do servidor). */
-  var COLECOES = ['habitos', 'tarefas', 'compromissos', 'lembretes', 'contas', 'links', 'foco', 'cartoes', 'faturas', 'lancs', 'regras', 'radios', 'passeios', 'programa', 'compras'];
+  /* 'lembretes', 'habitos' e 'checks' (rotina) saíram do app: não são mais enviados; se um aparelho antigo mandar, o item é aceito e ignorado
+     (sanearItem devolve null e colocar/tirar não acham a coleção). */
+  var COLECOES = ['tarefas', 'compromissos', 'contas', 'links', 'foco', 'cartoes', 'faturas', 'lancs', 'regras', 'radios', 'passeios', 'programa', 'compras'];
   var CONFIG_LOCAL = ['fonte', 'contraste', 'filtroDono', 'notificar'];     /* preferências de TELA: cada aparelho tem a sua */
   var DIAS_TOMBA = 130;
 
@@ -31,7 +33,6 @@
   function itensLocais(estado) {
     var m = {};
     COLECOES.forEach(function (c) { (estado[c] || []).forEach(function (x) { if (x && x.id) m[c + '|' + x.id] = { c: c, i: x.id, d: x }; }); });
-    Object.keys(estado.checks || {}).forEach(function (dia) { (estado.checks[dia] || []).forEach(function (h) { var i = dia + '|' + h; m['checks|' + i] = { c: 'checks', i: i, d: 1 }; }); });
     m['meta|config'] = { c: 'meta', i: 'config', d: configCompartilhada(estado.config) };
     m['meta|listas'] = { c: 'meta', i: 'listas', d: estado.listas || [] };
     return m;
@@ -43,7 +44,7 @@
     for (k in locais) {
       if (!Object.prototype.hasOwnProperty.call(locais, k)) continue;
       var h = hashDe(locais[k].d); m = it[k];
-      if (!m) { it[k] = { t: agora, h: h, vivo: true, env: false, n: (meta.primeiro && locais[k].c !== 'checks') ? 1 : 0 }; n++; }
+      if (!m) { it[k] = { t: agora, h: h, vivo: true, env: false, n: meta.primeiro ? 1 : 0 }; n++; }
       else if (!m.vivo) { m.vivo = true; m.h = h; m.t = Math.max(agora, m.t + 1); m.env = false; m.n = 0; n++; }          /* recriado depois de apagado */
       else if (m.h !== h) { m.h = h; m.t = Math.max(agora, m.t + 1); m.env = false; m.n = 0; n++; }
     }
@@ -67,27 +68,18 @@
   function substituirNoLugar(alvo, novo) { Object.keys(alvo).forEach(function (k) { delete alvo[k]; }); Object.keys(novo).forEach(function (k) { alvo[k] = novo[k]; }); }
   function colocar(estado, c, id, d) {
     var local = null;
-    if (c === 'checks') {
-      var p = id.split('|'); if (p.length !== 2) return null;
-      var l = estado.checks[p[0]] || (estado.checks[p[0]] = []);
-      if (l.indexOf(p[1]) < 0) l.push(p[1]);
-      return 1;
-    }
     if (c === 'meta') {
       if (id === 'config') { var cfg = estado.config; Object.keys(d).forEach(function (k) { if (CONFIG_LOCAL.indexOf(k) < 0) cfg[k] = d[k]; }); return configCompartilhada(cfg); }
       if (id === 'listas') { estado.listas.length = 0; d.forEach(function (x) { estado.listas.push(x); }); return estado.listas; }
       return null;
     }
+    if (COLECOES.indexOf(c) < 0) return null;
     var lista = estado[c]; if (!lista) return null;
     for (var i = 0; i < lista.length; i++) if (lista[i].id === id) { substituirNoLugar(lista[i], d); return lista[i]; }
     lista.push(d); return d;
   }
   function tirar(estado, c, id) {
-    if (c === 'checks') {
-      var p = id.split('|'), l = estado.checks[p[0]]; if (!l) return;
-      var i = l.indexOf(p[1]); if (i >= 0) l.splice(i, 1); if (!l.length) delete estado.checks[p[0]];
-      return;
-    }
+    if (COLECOES.indexOf(c) < 0) return;
     var lista = estado[c]; if (!lista) return;
     for (var j = 0; j < lista.length; j++) if (lista[j].id === id) { lista.splice(j, 1); return; }
   }
@@ -135,7 +127,7 @@
         var dado = o.sanearItem(r.c, p.i, p.d);
         if (dado == null) { rel.ignorados++; return; }
         var local = null; o.mutar(function (s) { local = colocar(s, r.c, p.i, dado); });
-        meta.itens[k] = { o: r.i, t: r.t, h: hashDe(r.c === 'checks' ? 1 : local), vivo: true, env: true, n: 0 };
+        meta.itens[k] = { o: r.i, t: r.t, h: hashDe(local), vivo: true, env: true, n: 0 };
         ix[r.i] = k; rel.recebidos++;
       }, function () { rel.erros++; });
     }

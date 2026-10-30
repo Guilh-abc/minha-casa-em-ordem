@@ -42,7 +42,7 @@ with sync_playwright() as p:
     m = pg.evaluate("fetch('/manifest.webmanifest').then(r=>r.json())")
     check(m['display'] == 'standalone' and m['name'] == 'Minha Casa em Ordem' and m['short_name'] == 'Casa em Ordem' and len(m.get('shortcuts', [])) >= 2, 'manifest: nome, standalone, atalhos')
     # PDF.js sob a CSP do portal
-    pg.evaluate("PS.store.alterar(function(s){s.faturas=[];s.cartoes=[];s.lancs=[];s.contas=[];s.lembretes=[];},true)")
+    pg.evaluate("PS.store.alterar(function(s){s.faturas=[];s.cartoes=[];s.lancs=[];s.contas=[];},true)")
     pg.evaluate("location.hash='#/cartoes'"); pg.wait_for_selector('.cartoes')
     pg.locator('[data-fid="ct:arq"]').set_input_files(str(raiz / 'tools/pdfs-teste/nubank-sintetico.pdf'))
     pg.wait_for_selector('[data-fid="rv:salvar"]', timeout=25000)

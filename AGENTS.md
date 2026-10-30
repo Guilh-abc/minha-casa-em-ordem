@@ -31,6 +31,6 @@ Regras para qualquer agente (OpenCode, Cursor, Claude, humano) que mexer neste r
 - Logo: `assets/logo.svg` (nome) e `assets/mark.svg` (símbolo). Original; não distorcer nem recolorir.
 
 ## Mapa de arquivos
-`js/store.js` dados/esquema · `dominio.js` regras · `financeiro.js`/`financas-ui.js` contas, pago × aberto, histórico, lembretes · `cartoes.js`, `cartoes-calc.js`, `fatura-parser.js`, `pdf-importar.js` faturas · `graficos.js` SVG · `cripto.js`/`sync-nucleo.js`/`sync.js`/`sincronizar.js` sincronização E2E · `portal.js` conta/sair (só atrás do login) · `telas.js`, `gerenciar.js`, `app.js` telas/boot · `sync-worker/` e `portal-worker/` Workers · `tools/` testes e scripts.
+`js/store.js` dados/esquema · `dominio.js` regras · `financeiro.js`/`financas-ui.js` contas, pago × aberto, histórico, avisos de vencimento · `cartoes.js`, `cartoes-calc.js`, `fatura-parser.js`, `pdf-importar.js` faturas · `graficos.js` SVG · `cripto.js`/`sync-nucleo.js`/`sync.js`/`sincronizar.js` sincronização E2E · `portal.js` conta/sair (só atrás do login) · `telas.js`, `gerenciar.js`, `app.js` telas/boot · `sync-worker/` e `portal-worker/` Workers · `tools/` testes e scripts.
 
 byGui

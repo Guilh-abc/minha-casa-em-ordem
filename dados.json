@@ -12,28 +12,6 @@
   "escurecerMin": 10,
   "nome": ""
  },
- "habitos": [
-  {
-   "nome": "Beber água",
-   "icone": "agua",
-   "exemplo": true
-  },
-  {
-   "nome": "Treino",
-   "icone": "treino",
-   "exemplo": true
-  },
-  {
-   "nome": "Remédio",
-   "icone": "remedio",
-   "exemplo": true
-  },
-  {
-   "nome": "Leitura",
-   "icone": "livro",
-   "exemplo": true
-  }
- ],
  "listas": [
   "Casa",
   "Trabalho",
@@ -111,32 +89,6 @@
    "hora": "",
    "local": "",
    "exemplo": true
-  }
- ],
- "lembretes": [
-  {
-   "id": "lembrete-bilu-casinha",
-   "titulo": "Comprar casinha maior para o Bilu",
-   "nota": "A atual ficou pequena. Comprar uma maior.",
-   "dia": 0,
-   "prio": "alta",
-   "categoria": "Pet / Família",
-   "icone": "casa-de-cachorro",
-   "feito": false
-  },
-  {
-   "titulo": "Comprovante da escola",
-   "dia": 10,
-   "obs": "Maria Alice: enviar o comprovante até o dia 10 (exemplo)",
-   "exemplo": true,
-   "icone": "escola"
-  },
-  {
-   "titulo": "Reunião de pais",
-   "dia": 20,
-   "obs": "Conferir o calendário da escola (exemplo)",
-   "exemplo": true,
-   "icone": "escola"
   }
  ],
  "contas": [

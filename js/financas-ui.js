@@ -1,4 +1,4 @@
-/* Telas financeiras: "Atenção agora" (Hoje), painel de contas/faturas (Família): Em aberto · Pagas · Histórico, e avisos. ES5. */
+/* Telas financeiras: "Atenção agora" (Hoje), painel de contas/faturas (Contas a pagar): Em aberto · Pagas · Histórico, e avisos. ES5. */
 (function (g) {
   'use strict';
   var PS = g.PS = g.PS || {};
@@ -12,7 +12,7 @@
   /* texto de apoio da conta: data · valor (ou "sem valor", discreto) · aviso da forma de pagamento */
   function apoio(p, comData) {
     var sv = p.tipo === 'conta' && p.valor == null ? ' · sem valor' : '';
-    return [(comData || '') + (p.valor != null && p.tipo !== 'lembrete' ? ' · ' + brl(p.valor) : ''), sv ? h('span', { class: 'sv' }, sv) : null, p.aviso ? ' · ' + p.aviso : ''];
+    return [(comData || '') + (p.valor != null ? ' · ' + brl(p.valor) : ''), sv ? h('span', { class: 'sv' }, sv) : null, p.aviso ? ' · ' + p.aviso : ''];
   }
   function dataBR(d) { return d ? d.split('-').reverse().join('/') : ''; }
 
@@ -23,14 +23,14 @@
       r.total ? h('span', { class: 'mais' }, (r.vencidas ? r.vencidas + (r.vencidas > 1 ? ' vencidas' : ' vencida') + ' · ' : '') + r.total + (r.total > 1 ? ' itens' : ' item')) : null);
     var corpo;
     if (!pend.length) {
-      corpo = h('p', { class: 'tudo-em-dia' }, I('check'), h('span', null, 'Tudo em dia', h('small', null, 'Nenhuma conta, fatura ou lembrete vencendo nos próximos 7 dias.')));
+      corpo = h('p', { class: 'tudo-em-dia' }, I('check'), h('span', null, 'Tudo em dia', h('small', null, 'Nenhuma conta ou fatura vencendo nos próximos 7 dias.')));
     } else {
       var mostra = pend.slice(0, max || 4);
       corpo = h('div', { class: 'atencao-lista' }, mostra.map(function (p) {
         return h('a', { class: 'atencao-item ' + p.nivel + (p.destaque && p.nivel === 'semana' ? ' prox' : '') + (p.aviso ? ' com-aviso' : ''), href: p.href, 'data-fid': 'at:' + p.tipo + p.id + p.chave },
           I(p.icone), h('span', { class: 't' }, p.titulo, h('small', null, apoio(p, dataBR(p.data).slice(0, 5)))), seloNivel(p));
       }));
-      if (pend.length > mostra.length) corpo.appendChild(h('a', { class: 'atencao-mais', href: '#/familia', 'data-fid': 'at:mais' }, '+' + (pend.length - mostra.length) + ' em Família'));
+      if (pend.length > mostra.length) corpo.appendChild(h('a', { class: 'atencao-mais', href: '#/contas', 'data-fid': 'at:mais' }, '+' + (pend.length - mostra.length) + ' em Contas a pagar'));
     }
     return h('section', { class: 'cartao atencao' + (r.urgentes ? ' urgente' : ''), 'aria-live': 'polite' }, cab, corpo);
   }
@@ -55,7 +55,7 @@
   /* ---------- detalhe da conta (toque no cartão) com Editar ---------- */
   function contaPorId(id) { var l = S.get().contas || []; for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
   function detalhe(p) {
-    if (p.tipo !== 'conta') { if (p.href && p.href !== '#/familia') location.hash = p.href; return; }
+    if (p.tipo !== 'conta') { if (p.href && p.href !== '#/contas') location.hash = p.href; return; }
     var corpo = h('div', { class: 'det-conta', 'data-fid': 'dc:corpo' }), editando = false, mudou = false;
     function info(rot, v) { return v === '' || v == null ? null : h('div', { class: 'det-linha' }, h('dt', null, rot), h('dd', null, v)); }
     function desenhar() {
@@ -129,7 +129,7 @@
   function historico(s, hoje) {
     var H = F.historico(s, hoje, 6), ms = H.meses.filter(function (m) { return m.temDados || true; });
     var tem = ms.some(function (m) { return m.total > 0; });
-    if (!tem) return h('p', { class: 'vazio' }, 'Ainda sem valores nos meses. Cadastre o valor das contas em Gerenciar → Família e marque como paga; as faturas entram em Cartões.');
+    if (!tem) return h('p', { class: 'vazio' }, 'Ainda sem valores nos meses. Cadastre o valor das contas em Gerenciar → Contas a pagar e marque como paga; as faturas entram em Cartões.');
     var linhas = ms.slice().reverse().map(function (m) {
       return h('tr', null, h('th', { scope: 'row' }, mesRot(m.mes)), h('td', null, brl(m.contas)), h('td', null, brl(m.faturas)), h('td', null, h('strong', null, brl(m.total))), h('td', null, deltaTxt(m.vs)));
     });
@@ -184,7 +184,7 @@
   function avisoFixas(s) {
     if (!s.config.fixasAviso) return null;
     return h('div', { class: 'aviso-fixas', role: 'status', 'data-fid': 'fx:aviso' },
-      h('span', null, 'Contas fixas sugeridas carregadas (sem valores). Marque como paga as que já quitou neste mês. Edição em Gerenciar → Família.'),
+      h('span', null, 'Contas fixas sugeridas carregadas (sem valores). Marque como paga as que já quitou neste mês. Edição em Gerenciar → Contas a pagar.'),
       h('span', { class: 'acoes' },
         h('button', { class: 'btn peq', type: 'button', 'data-fid': 'fx:desfazer', onclick: function () { var n = 0; S.alterar(function (st) { n = F.desfazerFixas(st); }); PS.aviso(n ? 'Contas fixas removidas (' + n + ')' : 'Nada a desfazer'); } }, I('desfazer'), 'Desfazer'),
         h('button', { class: 'btn peq', type: 'button', 'data-fid': 'fx:ok', onclick: function () { S.alterar(function (st) { st.config.fixasAviso = false; }); } }, 'Ok')));

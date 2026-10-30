@@ -101,10 +101,8 @@ with sync_playwright() as p:
     check('Total estimado: R$ 32,29' in pg.inner_text('main'), 'total estimado só dos não comprados')
     sw = pg.evaluate('document.documentElement.scrollWidth'); check(sw <= w, 'sem rolagem horizontal (%d)' % sw)
     if a.prints: pg.screenshot(path=a.prints + '/compras-lista-390.png', full_page=True)
-    pg.evaluate("location.hash='#/familia'"); pg.wait_for_timeout(300)
-    check(pg.locator('[data-fid="ft:camera"]').count() == 1 and pg.locator('[data-fid="ft:galeria"]').count() == 1, 'Família tem os dois botões')
-    check(pg.locator('[data-fid="fam:compras"]').count() == 1 and '2 itens a comprar' in pg.inner_text('main'), 'Família mostra atalho da lista de compras')
-    if a.prints: pg.locator('[data-fid="fam:compras"]').scroll_into_view_if_needed(); pg.screenshot(path=a.prints + '/familia-atalho-compras-390.png')
+    check(pg.locator('.menu a[href="#/compras"]', has_text='Lista de Compra').count() == 1, 'menu tem a aba Lista de Compra')
+    if a.prints: pg.screenshot(path=a.prints + '/menu-lista-de-compra-390.png')
     # foto DENTRO da Ajudante: mensagem com análise, destino e confirmar/editar
     pg.evaluate("PS.store.alterar(function(s){s.compras=[];s.tarefas=[];},true)")
     pg.evaluate("location.hash='#/assistente'"); pg.wait_for_timeout(400)

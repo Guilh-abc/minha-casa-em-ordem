@@ -3,7 +3,7 @@
   'use strict';
   var PS = g.PS = g.PS || {};
   var U = PS.u, h = U.h, S = PS.store, I = PS.icone;
-  var ABAS = [['geral', 'Geral'], ['habitos', 'Hábitos'], ['tarefas', 'Tarefas'], ['agenda', 'Agenda'], ['familia', 'Família'], ['links', 'Links'], ['sync', 'Sincronização'], ['backup', 'Backup']];
+  var ABAS = [['geral', 'Geral'], ['tarefas', 'Tarefas'], ['agenda', 'Agenda'], ['contas', 'Contas a pagar'], ['links', 'Links'], ['sync', 'Sincronização'], ['backup', 'Backup']];
   var PRIO = [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']];
 
   function campoEl(item, f, aoMudar) {
@@ -24,7 +24,7 @@
     return h('label', { class: 'campo' }, h('span', null, f.rotulo), el);
   }
 
-  /* campos de edição de conta (usados em Gerenciar e no detalhe da conta em Família) */
+  /* campos de edição de conta (usados em Gerenciar e no detalhe da conta em Contas a pagar) */
   var MESES_OP = U.MESES.map(function (n, k) { return [String(k + 1), n]; });
   function camposConta(m0) {
     return [{ k: 'titulo', rotulo: 'Conta', max: 80 },
@@ -153,10 +153,6 @@
         h('div', { class: 'form-linha' }, h('p', { class: 'nota' }, 'Instale como app no celular:'), h('div', { class: 'acoes', style: 'margin-top:.2rem' },
           h('a', { class: 'btn', href: '#/instalar' }, 'Instalar no celular'))));
     },
-    habitos: function () {
-      return editor({ colecao: 'habitos', rotuloAdd: 'Novo hábito', novo: function () { return { id: U.uid(), nome: '', icone: 'check' }; },
-        campos: [{ k: 'nome', rotulo: 'Hábito', dica: 'Ex.: Alongar', max: 40 }, { k: 'icone', rotulo: 'Ícone', tipo: 'select', opcoes: function () { return PS.iconesLista.map(function (n) { return [n, n]; }); } }] });
-    },
     tarefas: function () {
       var w = h('div'); w.appendChild(editorListas());
       w.appendChild(h('div', { class: 'bloco' }, h('h3', null, 'Tarefas'), editor({ colecao: 'tarefas', rotuloAdd: 'Nova tarefa', ordenar: function (l) { return PS.dom.ordenarTarefas(l); },
@@ -184,18 +180,8 @@
         } }, 'Escolher arquivo .ics')), res));
       w.appendChild(ed); return w;
     },
-    familia: function () {
+    contas: function () {
       var w = h('div');
-      w.appendChild(h('div', { class: 'bloco' }, h('h3', null, 'Lembretes'), h('p', { class: 'nota' }, 'Mensais (ex.: comprovante da escola até o dia 10) ou sem data (ex.: comprar algo). Pendências de prioridade alta aparecem em Hoje.'),
-        editor({ colecao: 'lembretes', rotuloAdd: 'Novo lembrete', ordenar: function (l) { return l.slice().sort(function (a, b) { return (a.dia || 0) - (b.dia || 0); }); }, novo: function () { return { id: U.uid(), titulo: '', dia: 10, obs: '', feitos: {}, feito: false, prio: 'media', categoria: '', icone: '' }; },
-          campos: [{ k: 'titulo', rotulo: 'Lembrete', max: 100 },
-            { k: 'semdata', rotulo: 'Sem data (pendência até marcar como feito)', tipo: 'check', redesenha: true, get: function (i) { return !i.dia; }, set: function (i, v) { i.dia = v ? 0 : 10; } },
-            { k: 'dia', rotulo: 'Dia do mês', tipo: 'number', min: 1, maxn: 31, mostrar: function (i) { return i.dia > 0; }, set: function (i, v) { i.dia = Math.min(31, Math.max(1, Math.round(Number(v)) || 1)); } },
-            { k: 'prio', rotulo: 'Prioridade (alta aparece em Hoje)', tipo: 'select', mostrar: function (i) { return !i.dia; }, opcoes: function () { return PRIO; } },
-            { k: 'categoria', rotulo: 'Categoria', max: 30, dica: 'Ex.: Pet / Família' },
-            { k: 'icone', rotulo: 'Ícone', tipo: 'select', opcoes: function () { return PS.iconesFamilia; } },
-            { k: 'feito', rotulo: 'Feito', tipo: 'check', mostrar: function (i) { return !i.dia; } },
-            { k: 'obs', rotulo: 'Observação', max: 160 }] })));
       var m0 = U.ym(U.hoje()), blocoContas = h('div', { class: 'bloco' });
       function desenharContas() {
         U.limpar(blocoContas);
@@ -252,7 +238,7 @@
         saida.appendChild(h('div', { class: 'acoes' }, h('button', { class: 'btn primario', type: 'button', onclick: function () { copiar(ta); } }, 'Copiar link')));
       }
       return h('div', null,
-        h('div', { class: 'form-linha' }, h('h3', null, 'Backup em arquivo (JSON)'), h('p', { class: 'nota' }, 'Guarda tudo, inclusive o histórico de hábitos.'),
+        h('div', { class: 'form-linha' }, h('h3', null, 'Backup em arquivo (JSON)'), h('p', { class: 'nota' }, 'Guarda tudo.'),
           h('div', { class: 'acoes' },
             h('button', { class: 'btn primario', type: 'button', onclick: function () { baixar('minha-casa-backup-' + U.hoje() + '.json', S.exportarJSON(), 'application/json'); PS.aviso('Backup baixado'); } }, 'Exportar JSON'),
             h('button', { class: 'btn', type: 'button', onclick: function () {
@@ -262,7 +248,7 @@
               });
             } }, 'Importar JSON'))),
         h('div', { class: 'form-linha' }, h('h3', null, 'Link de configuração'),
-          h('p', { class: 'nota' }, 'Configure no celular e gere um link com tudo (sem servidor: os dados vão dentro do endereço, depois do #). Abra o mesmo link no outro celular. Não inclui histórico de hábitos nem tarefas concluídas. Limite prático: ~2.000 caracteres em apps de mensagem; se passar, use o arquivo JSON.'),
+          h('p', { class: 'nota' }, 'Configure no celular e gere um link com tudo (sem servidor: os dados vão dentro do endereço, depois do #). Abra o mesmo link no outro celular. Não inclui tarefas concluídas. Limite prático: ~2.000 caracteres em apps de mensagem; se passar, use o arquivo JSON.'),
           h('div', { class: 'acoes' }, h('button', { class: 'btn primario', type: 'button', onclick: gerar }, 'Gerar link agora')), saida),
         h('div', { class: 'form-linha' }, h('h3', null, 'Sincronizar na nuvem'), h('p', { class: 'nota' }, 'Os celulares da família com os mesmos dados, cifrados no aparelho. Veja a aba Sincronização.'), h('div', { class: 'acoes' }, h('a', { class: 'btn', href: '#/sincronizar', 'data-fid': 'gb:sync' }, 'Abrir sincronização'))),
         h('div', { class: 'form-linha' }, h('h3', null, 'Dados de exemplo e reinício'),
@@ -276,6 +262,7 @@
 
   PS.gerenciar = { campoEl: campoEl, camposConta: camposConta };
   PS.views.gerenciar = { reativo: false, titulo: 'Gerenciar', render: function (param) {
+    if (param === 'familia') param = 'contas';            /* link antigo */
     var aba = secoes[param] ? param : 'geral';
     var tabs = ABAS.map(function (a) { return h('a', { class: 'aba', href: '#/gerenciar/' + a[0], role: 'tab', 'aria-selected': a[0] === aba ? 'true' : 'false', 'data-fid': 'ga:' + a[0] }, a[1]); });
     var aviso = S.temExemplos() && aba !== 'backup' ? h('div', { class: 'aviso-exemplo' }, h('span', null, 'Itens marcados como “exemplo” são só para mostrar como fica. Edite, ou remova todos de uma vez.'),

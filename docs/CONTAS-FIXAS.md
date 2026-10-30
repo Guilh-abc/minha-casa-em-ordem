@@ -4,12 +4,12 @@ Lista **genérica** de contas mensais/anuais (nome, dia do vencimento, forma de 
 
 ## Como as contas chegam
 - **Automático, uma única vez:** na 1ª abertura, se a lista de contas de casa estiver **vazia** (só os exemplos do `dados.json` contam como vazia), o app carrega as contas sugeridas, **remove as contas de exemplo** (seriam duplicatas) e mostra um aviso discreto em *Família* com **Desfazer** / **Ok**. A flag `config.fixasAuto` impede de repetir (mesmo que você apague tudo depois). Se já existirem contas reais, só registra a flag. **Com a nuvem ligada não roda** (o conteúdo vem da família); use o botão.
-- **Botão "Adicionar contas fixas sugeridas":** em *Família* (aba Em aberto) e em *Gerenciar → Família → Contas de casa*. **Idempotente:** cada conta tem id estável `fixa-<chave>` e o campo `fixa`; só cria as que faltam. Também repõe uma que você apagou.
+- **Botão "Adicionar contas fixas sugeridas":** em *Contas a pagar* (aba Em aberto) e em *Gerenciar → Contas a pagar → Contas de casa*. **Idempotente:** cada conta tem id estável `fixa-<chave>` e o campo `fixa`; só cria as que faltam. Também repõe uma que você apagou.
 - **Desfazer** remove só as fixas **intocadas** (sem valor nem pagamento marcados) e some com o aviso. As contas de exemplo substituídas não voltam.
 
 ## A lista (dia → forma)
 Escola 5 Boleto · Aluguel 6 Pix · Luz 4 Débito automático (Bradesco) · Pensão 6 Pix · Internet (Vivo) 12 Débito automático · IPTU 16 Gerar boleto · Financiamento do imóvel 15 Débito automático (Itaú) · IPVA / licenciamento / multas **anual, julho, dia 10** (Outro; "Pagar pelo acesso veículo do Itaú") · Cartão Nubank 21 Gerar boleto · Água 22 Gerar boleto · Cartão Itaú Black 28 Débito automático (Itaú).
-Edite tudo em **Gerenciar → Família → Contas de casa**; a lista aparece ordenada pelo **próximo vencimento**.
+Edite tudo em **Gerenciar → Contas a pagar → Contas de casa**; a lista aparece ordenada pelo **próximo vencimento**.
 
 ## Regras
 - **Valor opcional.** Sem valor aparece "sem valor" (discreto). Pago/aberto é **sempre manual**, por mês (`pagas['AAAA-MM']`).
@@ -19,7 +19,7 @@ Edite tudo em **Gerenciar → Família → Contas de casa**; a lista aparece ord
 - **Atenção agora:** contas/faturas que vencem em **até 5 dias** são destacadas (selo âmbar); vencidas em vermelho; ordenado por urgência.
 
 ## Forma de pagamento (`forma`) e "Banco/observação" (`obs`, ≤ 60 caracteres)
-`boleto`, `pix`, `debito`, `gerar`, `outro`. Aparece como selo na lista e há filtro por forma em *Família*.
+`boleto`, `pix`, `debito`, `gerar`, `outro`. Aparece como selo na lista e há filtro por forma em *Contas a pagar*.
 - **Gerar boleto:** aviso extra **5 dias antes** ("Gerar o boleto") em Atenção agora, nas notificações (mesmo que 5 dias não esteja nas antecedências escolhidas) e no `.ics` (evento "Gerar boleto: …" na data −5).
 - **Débito automático:** "Confira o saldo na conta" nos **2 dias antes** (notificação extra 1 dia antes, alarme extra no `.ics`). **Não é tratado como pago**: continua em aberto até marcar manualmente.
 
