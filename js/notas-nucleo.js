@@ -37,6 +37,7 @@
     var itens = (o.itens || []).map(function (x) {
       return { nome: String(x.nome || '').trim().slice(0, 80), qtd: qtd(x.qtd), unit: valor(x.unit), total: valor(x.total) };
     }).filter(function (x) { return x.nome || x.total !== null; });
+    itens.forEach(function (x) { if (x.unit === 0) x.unit = null; });   /* unitário 0 = não lido */
     var tot = valor(o.total), des = valor(o.desconto);
     /* a leitura às vezes devolve "R$ 0,00" no lugar de vazio: total 0 com itens não é total, é falta de total */
     if (tot === 0) tot = null;
@@ -78,6 +79,29 @@
     else if (Math.abs(soma - n.total) > 0.009) avisos.push('A soma dos itens' + (n.desconto ? ' menos o desconto' : '') + ' dá ' + brl(soma) + ', mas o total da nota é ' + brl(n.total) + '. Confira os valores.');
     return { soma: soma, bate: !avisos.length, aviso: avisos.join(' ') };
   }
+  /* mais fotos numa compra já salva: junta os itens novos sem repetir os da emenda nem os que já existem.
+     Total da nota lido nas fotos substitui o salvo (que pode ser a soma estimada). */
+  function anexar(base, novas) {
+    var r = JSON.parse(JSON.stringify(base)), tem = {}, sob = 0, add = 0;
+    (r.itens || []).forEach(function (x) { tem[chaveItem(x)] = 1; });
+    (novas.itens || []).forEach(function (x) { if (tem[chaveItem(x)]) { sob++; return; } tem[chaveItem(x)] = 1; r.itens.push(x); add++; });
+    if (!r.loja && novas.loja) r.loja = novas.loja;
+    if (!r.data && novas.data) r.data = novas.data;
+    if (novas.total !== null && novas.total !== undefined) { r.total = novas.total; r.estimado = false; }
+    if (novas.desconto !== null && novas.desconto !== undefined) r.desconto = novas.desconto;
+    r.novos = add; r.repetidos = sob + (novas.repetidos || 0);
+    return r;
+  }
+  /* linha do detalhe: "1 un · R$ 20,85"; unitário só se lido (> 0) ou se dá para calcular (qtd inteira > 1) */
+  function linhaItem(x) {
+    var q = x.qtd, t = x.total, u = x.unit, p = [];
+    var qt = q !== null && q !== undefined && q > 0 ? String(q).replace('.', ',') + (q === Math.round(q) ? ' un' : '') : '';
+    if (!(u > 0) && q > 1 && q === Math.round(q) && t > 0) u = cent(t / q);
+    if (qt) p.push(qt + (u > 0 && q !== 1 ? ' × ' + brl(u) : ''));
+    else if (u > 0) p.push(brl(u) + ' cada');
+    p.push(t !== null && t !== undefined ? brl(t) : 'sem valor');
+    return p.join(' · ');
+  }
   /* total salvo; se faltar (ou ficou 0 com itens que somam algo), a soma dos itens */
   function totalDe(c) { var t = c.total; if (t !== null && t !== undefined && !(t === 0 && somaItens(c) > 0)) return t; return somaItens(c); }
   /* compra sem valor nenhum (nem total nem itens): precisa de correção */
@@ -100,5 +124,5 @@
     var v = {}; (lista || []).forEach(function (c) { var k = String(c.data || '').slice(0, 7); if (/^\d{4}-\d{2}$/.test(k)) v[k] = 1; });
     return Object.keys(v).sort().reverse();
   }
-  return { valor: valor, qtd: qtd, data: data, brl: brl, normalizar: normalizar, conferir: conferir, somaItens: somaItens, totalDe: totalDe, semValor: semValor, juntar: juntar, resumoMes: resumoMes, meses: meses };
+  return { valor: valor, qtd: qtd, data: data, brl: brl, normalizar: normalizar, conferir: conferir, somaItens: somaItens, totalDe: totalDe, anexar: anexar, linhaItem: linhaItem, semValor: semValor, juntar: juntar, resumoMes: resumoMes, meses: meses };
 });

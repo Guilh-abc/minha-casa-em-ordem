@@ -87,6 +87,35 @@ with sync_playwright() as p:
         L('nt:data').fill('2026-10-28'); pg.locator('.modal button', has_text='Salvar').click(); pg.wait_for_timeout(300)
         ns = [x for x in pg.evaluate('PS.store.get().notas') if x['data'] == '2026-10-28']
         check(len(ns) == 1 and ns[0]['total'] == 50.87 and ns[0]['estimado'], '[%d] sem total: salva a soma dos itens marcada como estimada: %r' % (w, ns and ns[0]['total']))
+        # detalhe sem "x R$ 0,00" e nome separado da quantidade
+        pg.evaluate("""PS.store.alterar(function(s){s.notas.push({id:'nd',loja:'SUPERMERCADOS DO BRASIL LITA',data:'2026-10-27',total:30.55,estimado:true,desconto:null,origem:'foto',itens:[{nome:'CEREAL MAT KELLOGGS SUCRILHOS',qtd:1,unit:0,total:20.85},{nome:'BEB LACTEA ITALAC MORANGO TP',qtd:2,unit:0,total:5.30},{nome:'LEITE COND ITAMBE',qtd:2,unit:null,total:4.40}]});},true)""")
+        pg.evaluate("location.hash='#/tarefas'"); pg.wait_for_timeout(300); pg.evaluate("location.hash='#/compras'"); pg.wait_for_timeout(500)
+        L('nt:c:nd').click(); pg.wait_for_timeout(200)
+        d = L('nt:detalhe').inner_text()
+        check('R$ 0,00' not in d and 'x R$' not in d, '[%d] detalhe sem "x R$ 0,00": %r' % (w, d[:200]))
+        check('1 un · R$ 20,85' in d and '2 un × R$ 2,65 · R$ 5,30' in d, '[%d] linhas com qtd, unitário calculado só com qtd > 1' % w)
+        nomes = pg.locator('.nt-det-nome').all_inner_texts(); vals = pg.locator('.nt-det-val').all_inner_texts()
+        check('BEB LACTEA ITALAC MORANGO TP' in nomes and vals[1].startswith('2 un'), '[%d] nome em linha própria, separado da quantidade' % w)
+        nb = pg.locator('.nt-det-nome').nth(1).bounding_box(); vb = pg.locator('.nt-det-val').nth(1).bounding_box()
+        check(vb['y'] >= nb['y'] + nb['height'] - 1, '[%d] valor fica abaixo do nome' % w)
+        if a.prints and w == 390: pg.screenshot(path=a.prints + '/notas-detalhe-390.png')
+        # Editar > Adicionar fotos da nota: junta aos itens salvos, sem repetir, total lido substitui a soma
+        pg.locator('.modal button', has_text='Editar').click(); pg.wait_for_timeout(200)
+        check(L('nt:mais-fotos').count() == 1 and L('nt:ed-camera').bounding_box()['height'] >= 44, '[%d] Editar tem Adicionar fotos da nota' % w)
+        L('nt:loja').fill('SUPERMERCADOS DO BRASIL LTDA')
+        fila[:] = [{'loja': '', 'data': '', 'itens': [{'nome': 'LEITE COND ITAMBE', 'qtd': '2', 'unit': '', 'total': '4,40'}, {'nome': 'PAO LEITE PANCO', 'qtd': '1', 'unit': '', 'total': '9,99'}], 'total': ''},
+                   {'loja': '', 'data': '', 'itens': [{'nome': 'PAO LEITE PANCO', 'qtd': '1', 'unit': '', 'total': '9,99'}, {'nome': 'BISNAGUINHA', 'qtd': '1', 'unit': '', 'total': '3,85'}], 'total': 'R$ 46,39'}]
+        with pg.expect_file_chooser() as fc: L('nt:ed-galeria').click()
+        check(fc.value.is_multiple(), '[%d] galeria do Editar aceita várias fotos' % w)
+        fc.value.set_files([{'name': 'b.png', 'mimeType': 'image/png', 'buffer': png(0)}, {'name': 'c.png', 'mimeType': 'image/png', 'buffer': png(0)}]); pg.wait_for_timeout(1800)
+        pg.locator('.modal button', has_text='Terminei').click(); pg.wait_for_timeout(300)
+        av = L('nt:aviso').inner_text() if L('nt:aviso').count() else pg.locator('.modal').inner_text()
+        check(L('nt:loja').input_value() == 'SUPERMERCADOS DO BRASIL LTDA', '[%d] edição em andamento preservada' % w)
+        check(L('nt:i-nome:4').input_value() == 'BISNAGUINHA' and L('nt:i-nome:5').count() == 0 and L('nt:total').input_value() == '46,39', '[%d] 2 itens novos no fim, sem repetir, total lido: %r' % (w, av))
+        pg.locator('.modal button', has_text='Salvar').click(); pg.wait_for_timeout(300)
+        c = [x for x in pg.evaluate('PS.store.get().notas') if x['id'] == 'nd']
+        check(len(c) == 1 and len(c[0]['itens']) == 5 and c[0]['total'] == 46.39 and not c[0]['estimado'], '[%d] mesma compra atualizada, sem duplicar' % w)
+        check('base64' not in pg.evaluate('JSON.stringify(localStorage)'), '[%d] fotos do Editar descartadas' % w)
         check(not erros, '[%d] sem erros: %r' % (w, erros)); ctx.close()
     b.close()
 print('%d ok, %d falhas' % (len(ok), len(falhas))); sys.exit(1 if falhas else 0)

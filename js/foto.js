@@ -136,7 +136,19 @@
   }
 
   /* ---------- tela Lista de compras ---------- */
-  PS.views.compras = { reativo: true, titulo: 'Lista de compras', render: function () {
+  var linkAberto = '';
+  PS.views.compras = { reativo: true, titulo: 'Lista de compras', render: function (param) {
+    /* link #/compras/nota=<base64url JSON>: abre a revisão da compra já preenchida; só grava se a pessoa tocar em Salvar (sincroniza e leva a autoria deste aparelho) */
+    if (param && /^nota=/.test(param) && PS.notas && param !== linkAberto) {
+      linkAberto = param;
+      var n = null; try { n = S.lerLink(param.slice(5)); } catch (e) { n = null; }
+      g.history.replaceState(null, '', '#/compras');
+      setTimeout(function () {
+        if (!n || typeof n !== 'object' || !Array.isArray(n.itens)) return PS.modal.abrir('Link de compra inválido', h('p', null, 'Não consegui ler a compra deste link.'), [{ rotulo: 'Entendi' }]);
+        var itens = n.itens.slice(0, 250).map(function (x) { return { nome: String(x.nome || '').slice(0, 80), qtd: typeof x.qtd === 'number' ? x.qtd : null, unit: typeof x.unit === 'number' ? x.unit : null, total: typeof x.total === 'number' ? x.total : null }; });
+        PS.notas.editar({ loja: String(n.loja || '').slice(0, 80), data: /^\d{4}-\d{2}-\d{2}$/.test(n.data || '') ? n.data : '', itens: itens, desconto: typeof n.desconto === 'number' ? n.desconto : null, total: typeof n.total === 'number' ? n.total : null, origem: 'foto' }, 'Compra trazida por link: confira e toque em Salvar.');
+      }, 0);
+    }
     var s = S.get(), itens = s.compras.slice().sort(function (a, b) { return a.comprado === b.comprado ? 0 : (a.comprado ? 1 : -1); });
     var total = itens.reduce(function (t, x) { return t + (!x.comprado && x.preco != null ? x.preco : 0); }, 0);
     function alternar(id) { S.alterar(function (st) { st.compras.forEach(function (y) { if (y.id === id) y.comprado = !y.comprado; }); }); }

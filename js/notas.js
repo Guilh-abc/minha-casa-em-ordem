@@ -46,6 +46,10 @@
     corpo.appendChild(campo('Loja', 'nt:loja', n.loja || '', function (v) { n.loja = v; }, { maxlength: '80' }));
     corpo.appendChild(campo('Data', 'nt:data', n.data || '', function (v) { n.data = v; }, { type: 'date' }));
     corpo.appendChild(lista);
+    if (n.id) corpo.appendChild(h('div', { class: 'nt-mais-fotos', 'data-fid': 'nt:mais-fotos' }, h('strong', null, 'Adicionar fotos da nota'),
+      h('div', { class: 'acoes ft-acoes' },
+        h('button', { class: 'btn btn-foto', type: 'button', 'data-fid': 'nt:ed-camera', onclick: function () { PS.modal.fechar(true); lerFoto(true, n); } }, I('camera'), 'Tirar foto'),
+        h('button', { class: 'btn btn-foto', type: 'button', 'data-fid': 'nt:ed-galeria', onclick: function () { PS.modal.fechar(true); lerFoto(false, n); } }, I('baixar'), 'Galeria (várias fotos)'))));
     corpo.appendChild(h('button', { class: 'btn', type: 'button', 'data-fid': 'nt:i-mais', onclick: function () { n.itens.push({ nome: '', qtd: null, unit: null, total: null }); desenharItens(); conferir(); var e = lista.querySelector('[data-fid="nt:i-nome:' + (n.itens.length - 1) + '"]'); if (e) e.focus(); } }, I('mais'), 'Adicionar item'));
     corpo.appendChild(campo('Desconto (R$)', 'nt:desconto', txt(n.desconto), function (v) { n.desconto = N.valor(v); }, { inputmode: 'decimal', placeholder: '0,00' }));
     corpo.appendChild(campo('Total da nota (R$)', 'nt:total', txt(n.total), function (v) { n.total = N.valor(v); n.estimado = false; }, { inputmode: 'decimal', placeholder: '0,00' }));
@@ -80,8 +84,8 @@
   /* ---------- foto da nota ---------- */
   /* Nota longa: várias fotos (partes) da mesma compra. Cada parte vai ao Worker em modo nota;
      o app junta tudo numa compra só (N.juntar tira os itens repetidos na emenda). As fotos são descartadas. */
-  var partes = [];
-  function lerFoto(camera) { partes = []; pegarParte(camera); }
+  var partes = [], base = null;
+  function lerFoto(camera, b) { partes = []; base = b || null; pegarParte(camera); }
   function pegarParte(camera) {
     PS.foto.escolher(camera, { modo: 'nota', arquivos: function (fs) { fila(fs, 0); } });
   }
@@ -106,9 +110,16 @@
       h('div', { class: 'acoes ft-acoes' },
         h('button', { class: 'btn primario btn-foto', type: 'button', 'data-fid': 'nt:parte-camera', onclick: function () { PS.modal.fechar(true); pegarParte(true); } }, I('camera'), partes.length ? '+ Adicionar outra parte' : 'Tirar foto'),
         h('button', { class: 'btn btn-foto', type: 'button', 'data-fid': 'nt:parte-galeria', onclick: function () { PS.modal.fechar(true); pegarParte(false); } }, I('baixar'), 'Galeria (várias fotos)')));
-    var bt = [{ rotulo: 'Cancelar', acao: function () { partes = []; } }];
+    var bt = [{ rotulo: 'Cancelar', acao: function () { partes = []; var b = base; base = null; if (b) editar(b); } }];
     if (partes.length) bt.unshift({ rotulo: 'Terminei', tipo: 'primario', acao: function () {
       var n = N.juntar(partes, U.hoje()); partes = []; n.origem = 'foto';
+      if (base) {
+        var m = N.anexar(base, n), b0 = base; base = null;
+        var msg = m.novos + (m.novos === 1 ? ' item novo' : ' itens novos') + ' juntado' + (m.novos === 1 ? '' : 's') + ' aos já salvos' + (m.repetidos ? ' (' + m.repetidos + ' repetido' + (m.repetidos > 1 ? 's' : '') + ' ignorado' + (m.repetidos > 1 ? 's' : '') + ')' : '') + '.' +
+          (n.total !== null ? ' Total da nota lido: ' + N.brl(n.total) + '.' : '');
+        delete m.novos; delete m.repetidos; m.id = b0.id;
+        return editar(m, msg);
+      }
       var av = [];
       if (!n.data) av.push('Não achei a data na nota. Preencha conferindo.');
       if (n.total === null) av.push('Não achei o total da nota. Se ficar vazio, uso a soma dos itens.');
@@ -123,8 +134,7 @@
     var corpo = h('div', { 'data-fid': 'nt:detalhe' },
       h('p', null, (c.loja || 'Sem loja') + ' · ' + dbr(c.data) + (c.por ? ' · por ' + c.por : '')),
       c.itens.length ? h('ul', { class: 'lista-compras nt-det-itens' }, c.itens.map(function (x) {
-        var d = [x.qtd !== null ? qtxt(x.qtd) + ' x ' + (x.unit !== null ? N.brl(x.unit) : '') : '', x.total !== null ? N.brl(x.total) : 'sem total'].filter(Boolean).join(' · ');
-        return h('li', { class: 'compra' }, h('span', { class: 't' }, x.nome || 'Item', h('small', null, d)));
+        return h('li', { class: 'compra nt-det-item' }, h('span', { class: 'nt-det-nome' }, x.nome || 'Item'), h('small', { class: 'nt-det-val' }, N.linhaItem(x)));
       })) : h('p', { class: 'vazio' }, 'Sem itens lançados.'),
       c.desconto ? h('p', null, 'Desconto: ' + N.brl(c.desconto)) : null,
       h('p', { class: 'cp-total' }, 'Total: ' + (N.semValor(c) ? 'sem valor, toque em Editar para corrigir' : N.brl(N.totalDe(c)) + (c.total === null || c.total === 0 || c.estimado ? ' (soma dos itens, total da nota não lido)' : ''))),

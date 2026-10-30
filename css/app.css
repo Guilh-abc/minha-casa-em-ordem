@@ -492,3 +492,9 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .nt-partes { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
 .nt-partes-lista { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .2rem; }
 .nt-partes .ft-acoes .btn { min-height: 44px; }
+.lista-compras .compra.nt-det-item, .nt-det-item { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; text-align: left; width: 100%; gap: .1rem; padding: .3rem 0; }
+.nt-det-nome { overflow-wrap: anywhere; }
+.nt-det-val { color: var(--c-texto-2); }
+.nt-det-itens { width: 100%; text-align: left; }
+.nt-mais-fotos { grid-column: 1 / -1; display: flex; flex-direction: column; gap: .3rem; }
+.nt-mais-fotos .btn { min-height: 44px; }
