@@ -3,34 +3,36 @@
 (function (g) {
   'use strict';
   var PS = g.PS = g.PS || {};
-  var U = PS.u, h = U.h, I = PS.icone, S = PS.store;
-  var URL_API = 'https://minha-casa-assistente.guilhermeromionetto.workers.dev/chat';
+  var U = PS.u, h = U.h, I = PS.icone, S = PS.store, C = PS.consultas;
+  var URL_API = (g.MCO_ASSISTENTE_URL || 'https://minha-casa-assistente.guilhermeromionetto.workers.dev') + '/chat';
   var conversa = [];   /* { papel: 'user'|'assistant', texto, sugestao } só na memória da aba */
   var enviando = false;
 
   function brl(v) { return v == null ? 'sem valor' : 'R$ ' + Number(v).toFixed(2).replace('.', ','); }
   /* resumo compacto, até ~12 mil caracteres */
   function contexto() {
-    var s = S.get(), hoje = U.hoje(), fim = U.somaDias(hoje, 45), l = [];
+    var s = S.get(), hoje = U.hoje(), fim = U.somaDias(hoje, 45), l = [], exIds = {};
+    (s.contas || []).forEach(function (c) { if (c.exemplo) exIds[c.id] = 1; });
+    function real(x) { return x && !x.exemplo && !exIds[x.id]; }   /* dados de EXEMPLO não vão para o modelo */
     try {
-      var ls = PS.fin.listas(s, hoje), ab = ls.abertas.filter(function (x) { return x.data <= fim; }).slice(0, 40);
+      var ls = PS.fin.listas(s, hoje), ab = ls.abertas.filter(real).filter(function (x) { return x.data <= fim; }).slice(0, 40);
       l.push('CONTAS EM ABERTO (até 45 dias):');
       ab.forEach(function (x) { l.push('- ' + x.titulo + ': ' + brl(x.valor) + ', vence ' + x.data + (x.dias < 0 ? ' (ATRASADA)' : '') + (x.forma ? ', ' + x.forma : '')); });
       if (!ab.length) l.push('- nenhuma');
-      var pg = ls.pagas.filter(function (x) { return (x.pagaEm || x.data) >= U.somaDias(hoje, -31); }).slice(0, 20);
+      var pg = ls.pagas.filter(real).filter(function (x) { return (x.pagaEm || x.data) >= U.somaDias(hoje, -31); }).slice(0, 20);
       l.push('PAGAS NOS ÚLTIMOS 30 DIAS:');
       pg.forEach(function (x) { l.push('- ' + x.titulo + ': ' + brl(x.valor) + (x.pagaEm ? ', paga em ' + x.pagaEm : '')); });
       if (!pg.length) l.push('- nenhuma');
     } catch (e) { l.push('CONTAS: indisponível'); }
-    var tf = (s.tarefas || []).filter(function (t) { return !t.feita; }).slice(0, 60);
+    var tf = (s.tarefas || []).filter(real).filter(function (t) { return !t.feita; }).slice(0, 60);
     l.push('TAREFAS PENDENTES:');
     tf.forEach(function (t) { l.push('- ' + t.titulo + ' [' + t.lista + ', prioridade ' + t.prio + (t.vence ? ', até ' + t.vence : '') + ']'); });
     if (!tf.length) l.push('- nenhuma');
-    var cp = (s.compromissos || []).filter(function (c) { return c.data >= hoje && c.data <= fim; }).sort(function (a, b) { return (a.data + a.hora) < (b.data + b.hora) ? -1 : 1; }).slice(0, 40);
+    var cp = (s.compromissos || []).filter(real).filter(function (c) { return c.data >= hoje && c.data <= fim; }).sort(function (a, b) { return (a.data + a.hora) < (b.data + b.hora) ? -1 : 1; }).slice(0, 40);
     l.push('AGENDA (próximos 45 dias):');
     cp.forEach(function (c) { l.push('- ' + c.data + (c.hora ? ' ' + c.hora : '') + ': ' + c.titulo + (c.local ? ' (' + c.local + ')' : '')); });
     if (!cp.length) l.push('- nada marcado');
-    var lb = (s.lembretes || []).filter(function (x) { return !x.feito; }).slice(0, 30);
+    var lb = (s.lembretes || []).filter(real).filter(function (x) { return !x.feito; }).slice(0, 30);
     if (lb.length) { l.push('LEMBRETES MENSAIS:'); lb.forEach(function (x) { l.push('- ' + x.titulo + (x.dia ? ' (dia ' + x.dia + ')' : ' (sem data)')); }); }
     return l.join('\n').slice(0, 12000);
   }
@@ -91,18 +93,36 @@
       btn.disabled = enviando; status.textContent = enviando ? 'Pensando…' : '';
       lista.scrollTop = lista.scrollHeight;
     }
-    function enviar(texto) {
+    function dadosConsulta() {
+      var st = S.get(), ab = [];
+      try { ab = PS.fin.listas(st, U.hoje()).abertas; } catch (e) { ab = []; }
+      var ex = {}; (st.contas || []).forEach(function (c) { if (c.exemplo) ex[c.id] = 1; });
+      return { abertas: ab.filter(function (x) { return !ex[x.id]; }), compromissos: st.compromissos || [], tarefas: st.tarefas || [] };
+    }
+    function hojeTexto() { var hj = U.hoje(), am = U.somaDias(hj, 1); return U.DIAS[U.dowIso(hj)] + ', ' + hj.slice(8, 10) + '/' + hj.slice(5, 7) + '/' + hj.slice(0, 4) + ' (' + hj + '); amanhã é ' + U.DIAS[U.dowIso(am)] + ', ' + am.slice(8, 10) + '/' + am.slice(5, 7) + ' (' + am + ')'; }
+    function responderLocal(txt) { conversa.push({ papel: 'assistant', texto: txt, local: true }); }
+    /* rapida=true: pergunta pronta, respondida 100% pelo app, sem modelo */
+    function enviar(texto, rapida) {
       texto = String(texto || '').trim(); if (!texto || enviando) return;
-      conversa.push({ papel: 'user', texto: texto }); enviando = true; campo.value = ''; desenhar();
-      var hist = conversa.slice(-10).map(function (m) { return { papel: m.papel, texto: m.texto.slice(0, 4000) }; });
-      var hojeTxt = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) + ' (' + U.hoje() + ')';
-      fetch(URL_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mensagens: hist, contexto: contexto(), hoje: hojeTxt }) })
+      conversa.push({ papel: 'user', texto: texto }); campo.value = '';
+      var hj = U.hoje(), q = C.classificar(texto, hj), fechada = q ? C.responder(q, dadosConsulta()) : null;
+      if (fechada && (rapida || !fechada.itens.length)) { responderLocal(fechada.texto); desenhar(); return; }
+      enviando = true; desenhar();
+      var ctx = fechada ? 'LISTA FECHADA (estes são TODOS os itens; reformule só esta lista, não acrescente nada):\n' + fechada.texto : contexto();
+      var permitido = fechada ? fechada.permitido : C.permitidoResposta(ctx, texto, hj);
+      var hist = fechada ? [{ papel: 'user', texto: texto }] : conversa.filter(function (m) { return !m.local; }).slice(-10).map(function (m) { return { papel: m.papel, texto: m.texto.slice(0, 4000) }; });
+      fetch(URL_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mensagens: hist, contexto: ctx, hoje: hojeTexto() }) })
         .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
         .then(function (j) {
-          if (j && j.resposta) { var p = separar(j.resposta); conversa.push({ papel: 'assistant', texto: p.texto || 'Pronto.', sugestao: p.sugestao }); }
+          if (j && j.resposta) {
+            var p = separar(C.limpar(j.resposta));
+            if (fechada) { if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || fechada.texto }); else responderLocal(fechada.texto); }
+            else if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || 'Pronto.', sugestao: p.sugestao });
+            else responderLocal('Não encontrei isso nos dados do app. Pergunte, por exemplo, o que vence essa semana ou o que tem na agenda amanhã.');
+          }
           else conversa.push({ papel: 'assistant', texto: 'Não consegui responder: ' + ((j && j.erro) || 'erro desconhecido') });
         })
-        .catch(function () { conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
+        .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
         .then(function () { enviando = false; desenhar(); campo.focus(); });
     }
     var form = h('form', { class: 'ass-form', onsubmit: function (e) { e.preventDefault(); enviar(campo.value); } },
@@ -111,7 +131,7 @@
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(campo.value); } });
     var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Perguntas rápidas' },
       ['O que vence essa semana?', 'Tem conta atrasada?', 'Quais tarefas são prioridade alta?', 'O que tenho na agenda amanhã?'].map(function (q, i) {
-        return h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(q); } }, q);
+        return h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(q, true); } }, q);
       }));
     raiz.appendChild(h('section', { class: 'cartao' }, h('h2', null, I('estrela'), h('span', null, 'Ajudante da casa')), h('p', { class: 'ass-intro' }, 'Oi! Sou o ajudante geral do app. Posso ajudar com contas e vencimentos, agenda, tarefas e lembretes: pergunte o que vence, o que está atrasado ou o que tem para amanhã. Se você pedir para anotar algo, eu sugiro e você confirma antes de gravar.'), atalhos, lista, status, form,
       h('p', { class: 'ass-nota' }, 'Usa o modelo LFM3-1.7B da Liquid AI. Um resumo de contas, tarefas e agenda sai deste aparelho só quando você pergunta; faturas detalhadas e cartões não são enviados. Respostas podem errar: confira antes de pagar.')));
