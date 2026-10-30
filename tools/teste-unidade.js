@@ -31,7 +31,7 @@ function servidor() {
   };
   function sai(x) { return { c: x.c, i: x.i, d: x.a ? null : x.d, t: x.t, a: x.a }; }
 }
-function vazio() { return { config: { cidade: 'X', fonte: 1, contraste: false }, listas: ['Casa'], habitos: [], tarefas: [], compromissos: [], lembretes: [], contas: [], links: [], foco: [], checks: {} }; }
+function vazio() { return { config: { cidade: 'X', fonte: 1, contraste: false }, listas: ['Casa'], tarefas: [], compromissos: [], contas: [], links: [], foco: [] }; }
 function aparelho(srv, chaves, relogio) {
   var st = vazio(), meta = { seq: 0, itens: {}, primeiro: true };
   var motor = N.criarMotor({
@@ -104,10 +104,9 @@ var srv = servidor(), rel = { v: 1000 }, A, B;
 t('A cria itens, B os recebe; o servidor falso só tem texto cifrado', function () {
   A = aparelho(srv, cofre.chaves, rel); B = aparelho(srv, chaves2, rel);
   A.st.tarefas.push({ id: 'tarefa-0001', titulo: 'Pagar IPTU segredo', feita: false });
-  A.st.checks['2026-10-24'] = ['h-agua'];
   return A.ciclo().then(function () { return B.ciclo(); }).then(function () {
-    assert.strictEqual(B.st.tarefas.length, 1); assert.strictEqual(B.st.tarefas[0].titulo, 'Pagar IPTU segredo'); assert.deepStrictEqual(B.st.checks['2026-10-24'], ['h-agua']);
-    var tudo = JSON.stringify(srv.itens); assert(tudo.indexOf('IPTU') < 0 && tudo.indexOf('tarefa-0001') < 0 && tudo.indexOf('h-agua') < 0 && tudo.indexOf('segredo') < 0, 'texto claro no servidor');
+    assert.strictEqual(B.st.tarefas.length, 1); assert.strictEqual(B.st.tarefas[0].titulo, 'Pagar IPTU segredo');
+    var tudo = JSON.stringify(srv.itens); assert(tudo.indexOf('IPTU') < 0 && tudo.indexOf('tarefa-0001') < 0 && tudo.indexOf('segredo') < 0, 'texto claro no servidor');
   });
 });
 t('edição em B chega em A (mais novo vence)', function () {
@@ -119,25 +118,25 @@ t('conflito simultâneo: o carimbo maior vence nos dois', function () {
   rel.v = 3000; return A.ciclo().then(function () { rel.v = 3500; return B.ciclo(); }).then(function () { return A.ciclo(); }).then(function () { assert.strictEqual(A.st.tarefas[0].titulo, 'versão B'); assert.strictEqual(B.st.tarefas[0].titulo, 'versão B'); });
 });
 t('exclusão em A propaga e não ressuscita', function () {
-  rel.v = 4000; A.st.tarefas.length = 0; delete A.st.checks['2026-10-24'];
-  return A.ciclo().then(function () { rel.v = 4100; return B.ciclo(); }).then(function () { assert.strictEqual(B.st.tarefas.length, 0); assert(!B.st.checks['2026-10-24']); rel.v = 4200; return B.ciclo().then(function () { return A.ciclo(); }); }).then(function () { assert.strictEqual(A.st.tarefas.length, 0); assert.strictEqual(B.st.tarefas.length, 0); });
+  rel.v = 4000; A.st.tarefas.length = 0; 
+  return A.ciclo().then(function () { rel.v = 4100; return B.ciclo(); }).then(function () { assert.strictEqual(B.st.tarefas.length, 0); rel.v = 4200; return B.ciclo().then(function () { return A.ciclo(); }); }).then(function () { assert.strictEqual(A.st.tarefas.length, 0); assert.strictEqual(B.st.tarefas.length, 0); });
 });
 t('criação simultânea de itens diferentes: união nos dois', function () {
   rel.v = 5000; A.st.links.push({ id: 'link-a-0001', titulo: 'A' }); B.st.links.push({ id: 'link-b-0001', titulo: 'B' });
   return A.ciclo().then(function () { return B.ciclo(); }).then(function () { return A.ciclo(); }).then(function () { assert.strictEqual(A.st.links.length, 2); assert.strictEqual(B.st.links.length, 2); });
 });
-t('item de id fixo (Bilu): n:1 não duplica nem ressuscita apagado', function () {
+t('item de id fixo: n:1 não duplica nem ressuscita apagado', function () {
   var C = aparelho(srv, cofre.chaves, rel), D = aparelho(srv, cofre.chaves, rel);
-  rel.v = 6000; C.st.lembretes.push({ id: 'lembrete-bilu-casinha', titulo: 'Bilu' }); D.st.lembretes.push({ id: 'lembrete-bilu-casinha', titulo: 'Bilu (cópia do D)' });
+  rel.v = 6000; C.st.tarefas.push({ id: 'tarefa-fixa', titulo: 'Fixa' }); D.st.tarefas.push({ id: 'tarefa-fixa', titulo: 'Fixa (cópia do D)' });
   return C.ciclo().then(function () { return D.ciclo(); }).then(function () { return C.ciclo(); }).then(function () {
-    assert.strictEqual(D.st.lembretes.length, 1); assert.strictEqual(D.st.lembretes[0].titulo, 'Bilu'); assert.strictEqual(C.st.lembretes.length, 1);
-    rel.v = 7000; C.st.lembretes.length = 0; return C.ciclo();
+    assert.strictEqual(D.st.tarefas.filter(function (x) { return x.id === 'tarefa-fixa'; }).length, 1); assert.strictEqual(D.st.tarefas.filter(function (x) { return x.id === 'tarefa-fixa'; })[0].titulo, 'Fixa');
+    rel.v = 7000; C.st.tarefas = C.st.tarefas.filter(function (x) { return x.id !== 'tarefa-fixa'; }); return C.ciclo();
   }).then(function () {
     rel.v = 7100; return D.ciclo();
   }).then(function () {
-    assert.strictEqual(D.st.lembretes.length, 0);
-    var E = aparelho(srv, cofre.chaves, rel); rel.v = 8000; E.st.lembretes.push({ id: 'lembrete-bilu-casinha', titulo: 'volta?' });
-    return E.ciclo().then(function () { assert.strictEqual(E.st.lembretes.length, 0, 'ressuscitou o apagado'); });
+    assert.strictEqual(D.st.tarefas.filter(function (x) { return x.id === 'tarefa-fixa'; }).length, 0);
+    var E = aparelho(srv, cofre.chaves, rel); rel.v = 8000; E.st.tarefas.push({ id: 'tarefa-fixa', titulo: 'volta?' });
+    return E.ciclo().then(function () { assert.strictEqual(E.st.tarefas.filter(function (x) { return x.id === 'tarefa-fixa'; }).length, 0, 'ressuscitou o apagado'); });
   });
 });
 t('config compartilhada sincroniza, fonte/contraste não', function () {
@@ -161,4 +160,18 @@ t('contas fixas entram na coleção sincronizada "contas" (mesmo caminho cifrado
   assert.notStrictEqual(N.hashDe(N.itensLocais({ contas: [c], config: {}, listas: [], checks: {} })['contas|fixa-agua'].d), h1);
 });
 
+t('aparelho antigo manda lembretes, hábitos e checks: o novo aceita, ignora e continua sincronizando', function () {
+  var mud = [];
+  return Promise.all([['lembretes', 'l-velho', { id: 'l-velho', titulo: 'Bilu' }], ['habitos', 'h-velho', { id: 'h-velho', nome: 'Alongar' }], ['checks', '2026-10-24|h-velho', 1]].map(function (x) {
+    return cripto.idOpaco(cofre.chaves, x[0], x[1]).then(function (op) { return cripto.cifrar(cofre.chaves, x[0], op, { i: x[1], d: x[2] }).then(function (txt) { mud.push({ c: x[0], i: op, t: 9000, a: 0, d: txt }); }); });
+  })).then(function () { rel.v = 9000; return srv.api.put(0, mud); }).then(function () {
+    var F = aparelho(srv, cofre.chaves, rel); F.st.tarefas.push({ id: 'tarefa-nova-F', titulo: 'Nova' }); rel.v = 9100;
+    return F.ciclo().then(function (r) {
+      assert(!('lembretes' in F.st) && !('habitos' in F.st) && !('checks' in F.st), 'criou coleção removida');
+      assert(F.st.links.length >= 2, 'não recebeu os outros itens');
+      assert(srv.itens['tarefas|' + Object.keys(F.meta.itens).filter(function (k) { return k === 'tarefas|tarefa-nova-F'; }).map(function (k) { return F.meta.itens[k].o; })[0]], 'não enviou a tarefa nova');
+      assert.strictEqual(r.erros, 0);
+    });
+  });
+});
 fila.then(function () { console.log('\n' + ok + ' ok, ' + falhas + ' falhas'); process.exit(falhas ? 1 : 0); });

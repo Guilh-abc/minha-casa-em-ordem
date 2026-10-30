@@ -7,7 +7,7 @@ var F = global.PS.fin, U = global.PS.u;
 var ok = 0, falhas = 0;
 function t(nome, fn) { try { fn(); ok++; console.log('  ok   ' + nome); } catch (e) { falhas++; console.log('  FALHA ' + nome + ' → ' + e.message); } }
 function conta(o) { return Object.assign({ id: 'c1', titulo: 'Luz', mensal: true, dia: 10, data: '', valor: 100, paga: false, pagaEm: '', pagas: {}, valores: {}, desde: '', cat: 'casa', dono: '' }, o); }
-function est(o) { return Object.assign({ contas: [], faturas: [], cartoes: [], lembretes: [], lancs: [] }, o); }
+function est(o) { return Object.assign({ contas: [], faturas: [], cartoes: [], lancs: [] }, o); }
 var HOJE = '2026-10-10';
 
 t('pendências ordenam por urgência: vencida, hoje, amanhã, depois', function () {
@@ -49,9 +49,9 @@ t('fatura: vencida em vermelho (nivel), paga some, teste nunca entra', function 
 t('nunca marca como paga sozinha (listar/ler não muta)', function () {
   var s = est({ contas: [conta({ dia: 1 })] }); var antes = JSON.stringify(s); F.pendencias(s, HOJE, 7); F.listas(s, HOJE); F.historico(s, HOJE, 6); F.lembretesPara(s, HOJE, [3, 1, 0], {}); assert.strictEqual(JSON.stringify(s), antes);
 });
-t('lembretes do dia entram; feitos somem', function () {
-  var s = est({ lembretes: [{ id: 'l1', titulo: 'Ligar para o dentista', dia: 10, feitos: {} }, { id: 'l2', titulo: 'Outro', dia: 10, feitos: { '2026-10': true } }] });
-  var p = F.pendencias(s, HOJE, 7); assert.strictEqual(p.length, 1); assert.strictEqual(p[0].tipo, 'lembrete');
+t('lembretes antigos no estado não entram nas pendências (saíram do app)', function () {
+  var s = est({ lembretes: [{ id: 'l1', titulo: 'Ligar para o dentista', dia: 10, feitos: {} }] });
+  assert.strictEqual(F.pendencias(s, HOJE, 7).length, 0);
 });
 t('resumo conta níveis', function () {
   var s = est({ contas: [conta({ id: 'a', dia: 7 }), conta({ id: 'b', dia: 10 }), conta({ id: 'c', dia: 11 })] });
