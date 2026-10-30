@@ -4,16 +4,16 @@ var ok = 0, falhas = 0;
 function t(nome, cond) { if (cond) ok++; else { falhas++; console.log('  FALHA ' + nome); } }
 var SEX = '2026-10-30', DOM = '2026-11-01', SEG = '2026-11-02';
 
-/* essa semana = de hoje até domingo da semana corrente (segunda a domingo) */
+/* essa semana = de hoje até hoje+7 (pedido do Guilherme 30/10: 30/10 a 06/11) */
 var q = C.classificar('O que vence essa semana?', SEX);
-t('semana sexta: fim domingo', q.tipo === 'vencimentos' && q.ini === SEX && q.fim === DOM);
-t('semana sexta: rótulo', /30\/10 a 01\/11/.test(q.rotulo));
+t('semana sexta: até 06/11', q.tipo === 'vencimentos' && q.ini === SEX && q.fim === '2026-11-06');
+t('semana sexta: rótulo', /30\/10 a 06\/11/.test(q.rotulo));
 q = C.classificar('O que vence essa semana?', DOM);
-t('semana domingo: só o domingo', q.fim === DOM);
+t('semana domingo: até 08/11', q.fim === '2026-11-08');
 q = C.classificar('O que vence essa semana?', SEG);
-t('semana segunda: até 08/11', q.fim === '2026-11-08');
+t('semana segunda: até 09/11', q.fim === '2026-11-09');
 q = C.classificar('o que tenho na agenda essa semana', SEX);
-t('agenda semana: até domingo', q.tipo === 'agenda' && q.fim === DOM);
+t('agenda semana: até 06/11', q.tipo === 'agenda' && q.fim === '2026-11-06');
 
 var d = { abertas: [
   { id: 'a', titulo: 'Luz', valor: 120, data: '2026-10-31', dias: 1 },
@@ -22,7 +22,7 @@ var d = { abertas: [
   compromissos: [{ titulo: 'Aniversário Ana', data: '2026-11-22' }, { titulo: 'Dentista', data: '2026-10-31', hora: '09:00' }],
   tarefas: [{ titulo: 'Trocar filtro', prio: 'alta' }, { titulo: 'Pintar', prio: 'baixa' }, { titulo: 'Feita', prio: 'alta', feita: true }] };
 var r = C.responder(C.classificar('O que vence essa semana?', SEX), d);
-t('vence semana: só Luz', r.itens.length === 1 && r.itens[0].titulo === 'Luz');
+t('vence semana: Luz e Escola (até 06/11)', r.itens.length === 2 && r.itens[0].titulo === 'Luz' && r.itens[1].titulo === 'Escola');
 r = C.responder(C.classificar('O que tenho na agenda amanhã?', SEX), d);
 t('agenda amanhã: só Dentista, sem 22/11', r.itens.length === 1 && !/22\/11/.test(r.texto));
 r = C.responder(C.classificar('Tem conta atrasada?', SEX), d);

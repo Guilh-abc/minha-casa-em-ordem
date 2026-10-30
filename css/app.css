@@ -396,6 +396,11 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .ass-autor { margin: 0 0 .2rem; font-size: .62rem; font-weight: 700; color: var(--c-magenta-claro); text-transform: uppercase; letter-spacing: .04em; }
 .ass-texto { white-space: pre-wrap; font-size: .78rem; line-height: 1.45; }
 .ass-sug { margin-top: .5rem; padding: .5rem; border-radius: var(--raio); border: 2px dashed var(--c-aviso); }
+.ass-lugares { list-style: none; margin: .5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.ass-lugar { display: flex; flex-direction: column; gap: .25rem; padding: .5rem; border-radius: var(--raio); border: 1px solid var(--c-linha); }
+.ass-lugar-info { font-size: .9rem; }
+.ass-lugar-resumo { font-size: .88rem; opacity: .85; }
+.ass-lugar .btn, .ass-msg > .btn { align-self: flex-start; min-height: 44px; }
 .ass-sug p { display: flex; gap: .4rem; align-items: center; margin: 0 0 .4rem; font-size: .72rem; }
 .ass-ok { color: var(--c-ok); }
 .ass-status { min-height: 1.2em; font-size: .7rem; color: var(--c-texto-2); }

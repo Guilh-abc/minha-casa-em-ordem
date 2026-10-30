@@ -10,8 +10,9 @@
   function curta(iso) { return DIAS[new Date(utc(iso)).getUTCDay()] + ', ' + ddmm(iso); }
   function brl(v) { return v == null ? 'sem valor' : 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
   /* domingo da semana corrente (semana de segunda a domingo); no domingo é o próprio dia */
-  function fimSemana(iso) { var d = new Date(utc(iso)).getUTCDay(); return somaDias(iso, d === 0 ? 0 : 7 - d); }
-  function rotSemana(hoje) { var f = fimSemana(hoje); return f === hoje ? 'nesta semana (hoje, ' + ddmm(hoje) + ')' : 'nesta semana (' + ddmm(hoje) + ' a ' + ddmm(f) + ')'; }
+  /* "essa semana" = de hoje até hoje+7 (inclusive): 30/10 a 06/11 */
+  function fimSemana(iso) { return somaDias(iso, 7); }
+  function rotSemana(hoje) { return 'nos próximos 7 dias (' + ddmm(hoje) + ' a ' + ddmm(fimSemana(hoje)) + ')'; }
   function sem(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
   function classificar(pergunta, hoje) {
@@ -175,7 +176,33 @@
     var resto = p.replace(/\b(cri[ae]r?|adicion\w*|acrescent\w*|agend[ae]r?|marc[ae]r?|anot[ae]r?|coloc[ae]r?|inclu\w*|registr\w*|cadastr\w*|faz(er)?|fa[cç]a|quero|preciso|pode|voce)\b/g, ' ').replace(VAZIAS, ' ').replace(/[^a-z0-9]+/g, '');
     return resto ? '' : tipo;
   }
-  var C = { lerSugestoes: lerSugestoes, sugestaoFiel: sugestaoFiel, pedidoVazio: pedidoVazio, dataSug: dataSug, valorSug: valorSug, soLocal: soLocal, pedeCriar: pedeCriar, SEM_RESPOSTA: SEM_RESPOSTA, textoFinal: textoFinal, permitidoResposta: permitidoResposta, limpar: limpar, classificar: classificar, responder: responder, fiel: fiel, permitidoDeTexto: permitidoDeTexto, somaDias: somaDias, fimSemana: fimSemana };
+  /* sugestões do Ajudante montadas com os dados reais (até 6). Cada uma: { rotulo, pergunta, tipo: 'consulta'|'compras'|'restaurantes'|'criar' } */
+  function plural(n, um, varios) { return n + ' ' + (n === 1 ? um : varios); }
+  function sugestoesDinamicas(d, hoje, hora, compras) {
+    d = d || {}; var out = [], ab = (d.abertas || []).filter(function (x) { return !x.exemplo && !x.pagaEm; });
+    var atras = ab.filter(function (x) { return x.dias < 0; }).length, sem7 = ab.filter(function (x) { return x.dias >= 0 && x.dias <= 7; }).length;
+    var tAtras = (d.tarefas || []).filter(function (t) { return !t.exemplo && !t.feita && t.vence && t.vence < hoje; }).length;
+    var prox = (d.compromissos || []).filter(function (c) { return !c.exemplo && c.data >= hoje; }).sort(function (a, b) { return (a.data + (a.hora || '')) < (b.data + (b.hora || '')) ? -1 : 1; })[0];
+    var falta = (compras || []).filter(function (c) { return !c.exemplo && !c.comprado; }).length;
+    if (atras) out.push({ rotulo: plural(atras, 'conta atrasada', 'contas atrasadas') + ': quais?', pergunta: 'Tem conta atrasada?', tipo: 'consulta' });
+    if (sem7) out.push({ rotulo: plural(sem7, 'conta vence', 'contas vencem') + ' em 7 dias', pergunta: 'O que vence essa semana?', tipo: 'consulta' });
+    if (tAtras) out.push({ rotulo: plural(tAtras, 'tarefa atrasada', 'tarefas atrasadas') + ': ver', pergunta: 'Quais tarefas estão atrasadas?', tipo: 'consulta' });
+    if (prox) out.push({ rotulo: prox.data === hoje ? 'Agenda de hoje' : 'Próximo compromisso: ' + prox.data.slice(8, 10) + '/' + prox.data.slice(5, 7), pergunta: prox.data === hoje ? 'O que tenho na agenda hoje?' : 'Qual é o meu próximo compromisso?', tipo: 'consulta' });
+    if (falta) out.push({ rotulo: 'Lista de compras: ' + plural(falta, 'item', 'itens'), pergunta: 'O que falta comprar?', tipo: 'compras' });
+    if (hora >= 11 && hora < 14 || hora >= 18 && hora < 22) out.push({ rotulo: 'Restaurantes perto de mim', pergunta: 'Restaurantes perto de mim', tipo: 'restaurantes' });
+    if (hora >= 18 && (!prox || prox.data === hoje)) out.push({ rotulo: 'O que tenho amanhã?', pergunta: 'O que tenho na agenda amanhã?', tipo: 'consulta' });
+    if (hora < 12 && !prox) out.push({ rotulo: 'O que tenho para hoje?', pergunta: 'O que tenho na agenda hoje?', tipo: 'consulta' });
+    [{ rotulo: 'Criar uma tarefa', pergunta: 'Crie uma tarefa', tipo: 'criar' }, { rotulo: 'Marcar um compromisso', pergunta: 'Marque um compromisso', tipo: 'criar' },
+      { rotulo: 'Restaurantes perto de mim', pergunta: 'Restaurantes perto de mim', tipo: 'restaurantes' }, { rotulo: 'O que vence essa semana?', pergunta: 'O que vence essa semana?', tipo: 'consulta' }]
+      .forEach(function (x) { if (!out.some(function (o) { return o.pergunta === x.pergunta; })) out.push(x); });
+    return out.slice(0, 6);
+  }
+  function pedeRestaurante(p) { return /\b(restaurantes?|onde (comer|almo[cç]ar|jantar)|lugar para (comer|almo[cç]ar|jantar))\b/i.test(String(p || '')); }
+  /* distância em metros (haversine) e rótulo */
+  function distancia(a, b) { var R = 6371000, r = Math.PI / 180, dl = (b.lat - a.lat) * r, dg = (b.lng - a.lng) * r, x = Math.sin(dl / 2) * Math.sin(dl / 2) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dg / 2) * Math.sin(dg / 2); return Math.round(2 * R * Math.asin(Math.sqrt(x))); }
+  function rotDist(m) { return m < 1000 ? m + ' m' : (Math.round(m / 100) / 10).toString().replace('.', ',') + ' km'; }
+  function linkMaps(lat, lng) { return 'https://www.google.com/maps/search/restaurantes/@' + (+lat).toFixed(5) + ',' + (+lng).toFixed(5) + ',15z'; }
+  var C = { sugestoesDinamicas: sugestoesDinamicas, pedeRestaurante: pedeRestaurante, distancia: distancia, rotDist: rotDist, linkMaps: linkMaps, lerSugestoes: lerSugestoes, sugestaoFiel: sugestaoFiel, pedidoVazio: pedidoVazio, dataSug: dataSug, valorSug: valorSug, soLocal: soLocal, pedeCriar: pedeCriar, SEM_RESPOSTA: SEM_RESPOSTA, textoFinal: textoFinal, permitidoResposta: permitidoResposta, limpar: limpar, classificar: classificar, responder: responder, fiel: fiel, permitidoDeTexto: permitidoDeTexto, somaDias: somaDias, fimSemana: fimSemana };
   if (typeof module !== 'undefined' && module.exports) module.exports = C;
   if (raiz) { raiz.PS = raiz.PS || {}; raiz.PS.consultas = C; }
 })(typeof window !== 'undefined' ? window : null);

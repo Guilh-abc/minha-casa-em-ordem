@@ -3,8 +3,8 @@
 (function (g) {
   'use strict';
   var PS = g.PS = g.PS || {};
-  var U = PS.u, h = U.h, I = PS.icone, S = PS.store, C = PS.consultas;
-  var URL_API = (g.MCO_ASSISTENTE_URL || 'https://minha-casa-assistente.guilhermeromionetto.workers.dev') + '/chat';
+  var U = PS.u, h = U.h, I = PS.icone, S = PS.store, C = PS.consultas, G = PS.gemini;
+  var BASE = g.MCO_ASSISTENTE_URL || 'https://minha-casa-assistente.guilhermeromionetto.workers.dev', URL_API = BASE + '/chat', URL_CONVERSA = BASE + '/conversa';
   var conversa = [];   /* { papel: 'user'|'assistant', texto, sugestao } só na memória da aba */
   var enviando = false;
 
@@ -43,15 +43,17 @@
     return { texto: t, sugestoes: sugs, recusadas: r.sugestoes.length - sugs.length, sugestao: sugs[0] || null };
   }
   function descSug(x) {
+    if (x.tipo === 'compras') return 'Lista de compras: ' + (x.itens || []).join(', ');
     if (x.tipo === 'tarefa') return 'Nova tarefa: ' + x.titulo + (x.data ? ', até ' + U.dataCurta(x.data) : '');
     if (x.tipo === 'conta') return 'Nova conta (avulsa): ' + x.titulo + ', ' + brl(x.valor) + ', vence ' + U.dataCurta(x.vence);
     return 'Novo compromisso: ' + x.titulo + ', ' + U.dataCurta(x.data) + (x.hora ? ' às ' + x.hora : '');
   }
-  var ROT_GRAVOU = { tarefa: 'Tarefa salva em Tarefas', conta: 'Conta salva em Contas a pagar', compromisso: 'Compromisso salvo na Agenda' };
+  var ROT_GRAVOU = { compras: 'Itens salvos na Lista de compras', tarefa: 'Tarefa salva em Tarefas', conta: 'Conta salva em Contas a pagar', compromisso: 'Compromisso salvo na Agenda' };
   function gravar(x) {
     S.alterar(function (s) {
       var it;
-      if (x.tipo === 'tarefa') { it = S.sanearItem('tarefas', null, { titulo: x.titulo, vence: x.data, lista: s.listas[0], prio: 'media' }); if (it) { s.tarefas.push(it); PS.focarLista = it.lista; } }
+      if (x.tipo === 'compras') { (x.itens || []).forEach(function (n) { var c = S.sanearItem('compras', null, { nome: n }); if (c) s.compras.unshift(c); }); }
+      else if (x.tipo === 'tarefa') { it = S.sanearItem('tarefas', null, { titulo: x.titulo, vence: x.data, lista: s.listas[0], prio: 'media' }); if (it) { s.tarefas.push(it); PS.focarLista = it.lista; } }
       else if (x.tipo === 'conta') { it = S.sanearItem('contas', null, { titulo: x.titulo, mensal: false, data: x.vence, dia: +x.vence.slice(8, 10), valor: x.valor }); if (it) s.contas.push(it); }
       else { it = S.sanearItem('compromissos', null, { titulo: x.titulo, data: x.data, hora: x.hora, fonte: 'manual' }); if (it) s.compromissos.push(it); }
     });
@@ -59,6 +61,11 @@
   }
   /* Editar: tarefa e compromisso usam a mesma revisão da foto (que salva no destino escolhido); conta tem formulário próprio */
   function editarSug(x, fim) {
+    if (x.tipo === 'compras') {
+      var ta = h('textarea', { class: 'entrada', rows: '5', 'data-fid': 'ass-compras-itens' }); ta.value = (x.itens || []).join('\n');
+      return PS.modal.abrir('Itens para a Lista de compras', h('label', { class: 'campo' }, h('span', null, 'Um item por linha'), ta), [{ rotulo: 'Cancelar' },
+        { rotulo: 'Salvar', tipo: 'primario', acao: function () { var its = ta.value.split('\n').map(function (z) { return z.trim().slice(0, 80); }).filter(Boolean); if (!its.length) return; var m = gravar({ tipo: 'compras', itens: its }); PS.aviso(m); fim(m); } }]);
+    }
     if (x.tipo !== 'conta') return PS.foto.revisar({ destino: x.tipo === 'tarefa' ? 'tarefa' : 'agenda', titulo: x.titulo || '', data: x.data || '', hora: x.hora || '', local: '', valor: null, nome: '', preco: null, unidade: '' }, '', fim);
     var c = { titulo: x.titulo || '', vence: x.vence || U.hoje(), valor: x.valor == null ? '' : String(x.valor).replace('.', ',') };
     function entrada(rot, k, at) { var a = { class: 'entrada', 'data-fid': 'ass-conta-' + k, value: c[k], oninput: function () { c[k] = this.value; } }; Object.keys(at || {}).forEach(function (z) { a[z] = at[z]; }); return h('label', { class: 'campo' }, h('span', null, rot), h('input', a)); }
@@ -74,6 +81,13 @@
   function balao(m, i, desenhar) {
     var filhos = [h('p', { class: 'ass-autor' }, m.papel === 'user' ? 'Você' : 'Ajudante'), h('div', { class: 'ass-texto' }, m.texto)];
     var sugs = m.sugestoes || (m.sugestao ? [m.sugestao] : []);
+    if (m.lugares) filhos.push(h('ul', { class: 'ass-lugares', 'data-fid': 'ass-lugares' }, m.lugares.map(function (l, k) {
+      var linha = [l.nota != null ? '★ ' + String(l.nota).replace('.', ',') + (l.avaliacoes != null ? ' (' + l.avaliacoes + ' avaliações)' : '') : 'sem nota', l.preco || l.faixa || '', l.dist != null ? C.rotDist(l.dist) : '', l.aberto === true ? 'aberto agora' : l.aberto === false ? 'fechado agora' : ''].filter(Boolean).join(' · ');
+      return h('li', { class: 'ass-lugar', 'data-fid': 'ass-lugar-' + k }, h('strong', null, l.nome), h('span', { class: 'ass-lugar-info' }, linha),
+        l.resumo ? h('span', { class: 'ass-lugar-resumo' }, l.resumo) : null,
+        l.maps ? h('a', { class: 'btn', href: l.maps, target: '_blank', rel: 'noopener', 'data-fid': 'ass-lugar-maps-' + k }, 'Abrir no Google Maps') : null);
+    })));
+    if (m.link) filhos.push(h('a', { class: 'btn', href: m.link, target: '_blank', rel: 'noopener', 'data-fid': 'ass-maps' }, 'Buscar restaurantes no Google Maps'));
     sugs.forEach(function (sg, k) {
       var id = i + '-' + k;
       function pronto(msg) { sg.feito = msg; desenhar(); }
@@ -120,12 +134,75 @@
       if (tipo === 'conta') return editarSug({ tipo: 'conta', titulo: '', vence: U.hoje(), valor: null }, fim);
       editarSug({ tipo: tipo, titulo: '', data: '', hora: '' }, fim);
     }
+    /* Gemini com ferramentas que rodam AQUI, sobre os dados reais; ele pergunta o que falta antes de sugerir; cartão só grava com Confirmar.
+       Se o Gemini falhar, cai para a Liquid (/chat). */
+    function viaGemini(texto, memo, reservaLiquid) {
+      var hj = U.hoje(), dd = dadosConsulta(), turnos = memo.concat([{ r: 'user', t: texto }]), resultados = [], sugs = [], rodada = 0;
+      var pedidos = [texto].concat(memo.filter(function (m) { return m.r === 'user'; }).slice(-3).map(function (m) { return m.t; }));
+      function fim() { enviando = false; desenhar(); campo.focus(); }
+      function passo() {
+        rodada++;
+        fetch(URL_CONVERSA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnos: turnos, hoje: hojeTexto() }) })
+          .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.', fallback: true }; }); })
+          .then(function (j) {
+            if (j && j.chamadas && j.chamadas.length && rodada < 5) {
+              var fr = j.chamadas.map(function (c) {
+                var res;
+                if (c.n === 'criar_sugestao') {
+                  var o = G.sugestao(c.a, pedidos, hj);
+                  if (o.sugestao && !C.sugestaoFiel(o.sugestao.tipo === 'compras' ? { titulo: o.sugestao.itens.join(' ') } : o.sugestao, pedidos.join(' '))) o = { erro: 'o título não veio do que o usuário disse; pergunte o que ele quer criar' };
+                  if (o.sugestao) sugs.push(o.sugestao); res = o.resultado || { erro: o.erro };
+                } else res = G.executar(c.n, c.a, dd, hj, agoraHHMM());
+                resultados.push(res); return { n: c.n, res: res };
+              });
+              turnos.push({ r: 'model', fc: j.chamadas }); turnos.push({ r: 'tool', fr: fr });
+              status.textContent = 'Consultando os dados do app…'; passo(); return;
+            }
+            if (j && j.resposta) {
+              var perm = G.permitido(resultados.concat(sugs, memo), hj), f = G.finalizar(j.resposta, perm);
+              if (f.fiel || (!f.texto && sugs.length)) conversa.push({ papel: 'assistant', texto: f.texto || 'Posso anotar isto:', sugestoes: sugs });
+              else responderLocal(G.reserva(texto, dd, hj, 'citou algo que não está nos seus dados, então descartei a resposta'));
+              return fim();
+            }
+            reservaLiquid();
+          })
+          .catch(function () { reservaLiquid(); });
+      }
+      passo();
+    }
+    /* restaurantes perto: localização só com permissão do aparelho; dados só do Google Places (via Worker); sem chave, link de busca no Maps */
+    function restaurantes() {
+      var semGeo = 'Não consegui a sua localização (permissão negada ou indisponível). Você pode buscar direto no Google Maps:';
+      if (!navigator.geolocation) { conversa.push({ papel: 'assistant', texto: semGeo, local: true, link: 'https://www.google.com/maps/search/restaurantes+perto+de+mim' }); return desenhar(); }
+      enviando = true; desenhar(); status.textContent = 'Pedindo a sua localização…';
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var eu = { lat: pos.coords.latitude, lng: pos.coords.longitude }, mapa = C.linkMaps(eu.lat, eu.lng);
+        status.textContent = 'Buscando restaurantes perto…';
+        fetch(BASE + '/lugares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: eu.lat, lng: eu.lng }) })
+          .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
+          .then(function (j) {
+            if (j && j.lugares && j.lugares.length) {
+              j.lugares.forEach(function (l) { l.dist = l.lat != null ? C.distancia(eu, l) : null; });
+              j.lugares.sort(function (a, b) { return (a.dist == null ? 1e9 : a.dist) - (b.dist == null ? 1e9 : b.dist); });
+              conversa.push({ papel: 'assistant', texto: 'Restaurantes perto de você (dados do Google Maps):', local: true, lugares: j.lugares, link: mapa });
+            } else if (j && j.lugares) conversa.push({ papel: 'assistant', texto: 'O Google Maps não achou restaurantes por perto. Busque no mapa:', local: true, link: mapa });
+            else conversa.push({ papel: 'assistant', texto: (j && j.semChave ? 'A busca com nota, avaliações e preço ainda não está ligada: falta uma chave do Google Maps Platform (Places API) no servidor do Ajudante. Enquanto isso, abra a busca no Google Maps:' : 'Não consegui buscar agora (' + ((j && j.erro) || 'erro') + '). Abra a busca no Google Maps:'), local: true, link: mapa });
+          })
+          .catch(function () { conversa.push({ papel: 'assistant', texto: 'Não consegui falar com o servidor. Abra a busca no Google Maps:', local: true, link: mapa }); })
+          .then(function () { enviando = false; desenhar(); });
+      }, function () { enviando = false; conversa.push({ papel: 'assistant', texto: semGeo, local: true, link: 'https://www.google.com/maps/search/restaurantes+perto+de+mim' }); desenhar(); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
+    }
+    function agoraHHMM() { var d = new Date(); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
     function hojeTexto() { var hj = U.hoje(), am = U.somaDias(hj, 1); return U.DIAS[U.dowIso(hj)] + ', ' + hj.slice(8, 10) + '/' + hj.slice(5, 7) + '/' + hj.slice(0, 4) + ' (' + hj + '); amanhã é ' + U.DIAS[U.dowIso(am)] + ', ' + am.slice(8, 10) + '/' + am.slice(5, 7) + ' (' + am + ')'; }
     function responderLocal(txt) { conversa.push({ papel: 'assistant', texto: txt, local: true }); }
     /* rapida=true: pergunta pronta, respondida 100% pelo app, sem modelo */
     function enviar(texto, rapida) {
       texto = String(texto || '').trim(); if (!texto || enviando) return;
+      var memo = G ? G.memoria(conversa) : [];
       conversa.push({ papel: 'user', texto: texto }); campo.value = '';
+      if (C.pedeRestaurante(texto) && !C.pedeCriar(texto)) return restaurantes();
+      if (/^o que falta comprar\??$/i.test(texto)) { var fc = (S.get().compras || []).filter(function (c) { return !c.exemplo && !c.comprado; }); responderLocal(fc.length ? 'Falta comprar (' + fc.length + '): ' + fc.map(function (c) { return c.nome; }).join(', ') + '.' : 'A Lista de compras está vazia.'); return desenhar(); }
+      if (/^quais tarefas est[aã]o atrasadas\??$/i.test(texto)) { var hj0 = U.hoje(), ta = (S.get().tarefas || []).filter(function (t) { return !t.exemplo && !t.feita && t.vence && t.vence < hj0; }); responderLocal(ta.length ? 'Tarefas atrasadas (' + ta.length + '):\n' + ta.map(function (t) { return '• ' + t.titulo + ' (prazo ' + t.vence.slice(8, 10) + '/' + t.vence.slice(5, 7) + ')'; }).join('\n') : 'Nenhuma tarefa atrasada.'); return desenhar(); }
       var vazio = C.pedidoVazio(texto);
       if (vazio) {
         var rot = { tarefa: 'nova tarefa', compromisso: 'novo compromisso', conta: 'nova conta' }[vazio];
@@ -137,6 +214,9 @@
       var hj = U.hoje(), q = C.pedeCriar(texto) ? null : C.classificar(texto, hj), fechada = q ? C.responder(q, dadosConsulta()) : null;
       if (fechada && (rapida || C.soLocal(q) || !fechada.itens.length)) { responderLocal(fechada.texto); desenhar(); return; }
       enviando = true; desenhar();
+      if (G && !fechada) return viaGemini(texto, memo, viaLiquid);
+      viaLiquid();
+      function viaLiquid() {
       var ctx = fechada ? 'LISTA FECHADA (estes são TODOS os itens; reformule só esta lista, não acrescente nada):\n' + fechada.texto : contexto();
       var permitido = fechada ? fechada.permitido : C.permitidoResposta(ctx, texto, hj);
       var hist = fechada ? [{ papel: 'user', texto: texto }] : conversa.filter(function (m) { return !m.local; }).slice(-10).map(function (m) { return { papel: m.papel, texto: m.texto.slice(0, 4000) }; });
@@ -154,6 +234,7 @@
         })
         .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
         .then(function () { enviando = false; desenhar(); campo.focus(); });
+      }
     }
     /* entrada por voz (Web Speech API, pt-BR): o texto aparece no campo e é enviado quando a escuta termina */
     var Reconhecer = g.SpeechRecognition || g.webkitSpeechRecognition, rec = null, ouvindo = false;
@@ -186,12 +267,16 @@
         h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-foto', 'aria-expanded': 'false', onclick: function () { var ab = fotoBox.hidden; fotoBox.hidden = !ab; this.setAttribute('aria-expanded', ab ? 'true' : 'false'); } }, I('camera'), 'Foto'),
         h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-limpar', onclick: function () { conversa = []; desenhar(); } }, 'Limpar conversa')), fotoBox);
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(campo.value); } });
-    var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Perguntas rápidas' },
-      ['O que vence essa semana?', 'Tem conta atrasada?', 'Quais tarefas são prioridade alta?', 'O que tenho na agenda amanhã?'].map(function (q, i) {
-        return h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(q, true); } }, q);
-      }));
+    var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Sugestões' });
+    function montarAtalhos() {
+      U.limpar(atalhos);
+      C.sugestoesDinamicas(dadosConsulta(), U.hoje(), new Date().getHours(), S.get().compras || []).forEach(function (x, i) {
+        atalhos.appendChild(h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(x.pergunta, x.tipo === 'consulta'); montarAtalhos(); } }, x.rotulo));
+      });
+    }
+    montarAtalhos();
     raiz.appendChild(h('section', { class: 'cartao' }, h('h2', null, I('estrela'), h('span', null, 'Ajudante da casa')), h('p', { class: 'ass-intro' }, 'Oi! Sou o ajudante geral do app. Posso ajudar com contas e vencimentos, agenda e tarefas: pergunte o que vence, o que está atrasado ou o que tem para amanhã. Se você pedir para anotar algo, eu sugiro e você confirma antes de gravar.'), atalhos, lista, status, form,
-      h('p', { class: 'ass-nota' }, 'Usa o modelo LFM3-1.7B da Liquid AI. Um resumo de contas, tarefas e agenda sai deste aparelho só quando você pergunta; faturas detalhadas e cartões não são enviados. Respostas podem errar: confira antes de pagar.')));
+      h('p', { class: 'ass-nota' }, 'As conversas usam o Gemini (Google, plano gratuito: o Google pode usar o que é enviado para melhorar os modelos); se ele falhar, o LFM3-1.7B da Liquid AI responde. Restaurantes usam a sua localização só quando você pede. Um resumo de contas, tarefas e agenda sai deste aparelho só quando você pergunta; faturas detalhadas e cartões não são enviados. Respostas podem errar: confira antes de pagar.')));
     desenhar();
     return raiz;
   }

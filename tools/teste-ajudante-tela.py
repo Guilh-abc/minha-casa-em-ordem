@@ -24,6 +24,7 @@ with sync_playwright() as p:
         ctx = b.new_context(viewport={'width': w, 'height': hh}); ctx.add_init_script(RELOGIO + VOZ)
         enviados = []; SO_SUG = '<<SUGESTAO {"tipo":"compromisso","titulo":"Dentista","data":"2026-10-31","hora":"09:00"}>>\n\n<<SUGESTAO {"tipo":"tarefa","titulo":"Trocar filtro"}>>'
         def rota(r):
+            if r.request.url.endswith('/conversa'): return r.fulfill(status=503, headers={'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}, body=json.dumps({'erro': 'Gemini indisponível', 'fallback': True}))
             enviados.append(json.loads(r.request.post_data or '{}'))
             if 'pronto o' in (r.request.post_data or ''): return r.fulfill(status=200, headers={'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}, body=json.dumps({'resposta': SO_SUG}))
             r.fulfill(status=200, headers={'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}, body=json.dumps({'resposta': 'A conta de luz vence sáb, 31/10. A conta de luz vence sáb, 31/10. A conta de luz vence sáb, 31/10.......'}))
@@ -32,10 +33,10 @@ with sync_playwright() as p:
         pg.goto(base + '#/'); pg.wait_for_timeout(700); pg.evaluate(DADOS)
         check(pg.evaluate('PS.u.hoje()') == '2026-10-30', '[%d] relógio fixo em sexta 30/10' % w)
         pg.evaluate("location.hash='#/assistente'"); pg.wait_for_timeout(400)
-        pg.locator('[data-fid="ass-rapida-0"]').click(); pg.wait_for_timeout(200)
+        pg.fill('[data-fid="ass-pergunta"]', 'O que vence essa semana?'); pg.locator('[data-fid="ass-enviar"]').click(); pg.wait_for_timeout(200)
         t = pg.locator('.ass-msg.ia .ass-texto').last.inner_text()
         check('Luz' in t and 'Escola' not in t and '01/11' in t, '[%d] essa semana = até domingo 01/11, sem Escola (02/11): %r' % (w, t))
-        pg.locator('[data-fid="ass-rapida-3"]').click(); pg.wait_for_timeout(200)
+        pg.fill('[data-fid="ass-pergunta"]', 'O que tenho na agenda amanhã?'); pg.locator('[data-fid="ass-enviar"]').click(); pg.wait_for_timeout(200)
         t = pg.locator('.ass-msg.ia .ass-texto').last.inner_text()
         check('Dentista' in t and '22/11' not in t, '[%d] agenda amanhã sem o aniversário de 22/11' % w)
         check(not enviados, '[%d] perguntas rápidas não chamam o modelo' % w)
