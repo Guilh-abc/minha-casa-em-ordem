@@ -23,6 +23,7 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(RELOGIO)
     chamadas = []
     def rota(r):
+        if r.request.url.endswith('/conversa'): return r.fulfill(status=503, headers={'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}, body='{"erro":"indisponivel","fallback":true}')
         if r.request.method == 'OPTIONS': return r.fulfill(status=204, headers={'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type'})
         H = {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}
         if '/foto' in r.request.url: return r.fulfill(status=200, headers=H, body=json.dumps({'campos': FOTO['r']}))
