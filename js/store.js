@@ -115,8 +115,8 @@
     /* compras feitas (notas fiscais ou lançadas à mão). Valores vazios ficam null: nunca inventamos. */
     function vn(v) { return v == null || v === '' ? null : num(v, -1e6, 1e7, null); }
     s.notas = arr(o.notas).slice(0, 2000).map(function (x) {
-      return { id: id(x), por: str(x.por, 60), loja: str(x.loja, 80), data: iso(x.data), desconto: vn(x.desconto), total: vn(x.total), origem: x.origem === 'foto' ? 'foto' : 'mao',
-        itens: arr(x.itens).slice(0, 80).filter(function (i) { return i && typeof i === 'object'; }).map(function (i) { return { nome: str(i.nome, 80), qtd: vn(i.qtd), unit: vn(i.unit), total: vn(i.total) }; }) };
+      return { id: id(x), por: str(x.por, 60), loja: str(x.loja, 80), data: iso(x.data), desconto: vn(x.desconto), total: vn(x.total), estimado: !!x.estimado, origem: x.origem === 'foto' ? 'foto' : 'mao',
+        itens: arr(x.itens).slice(0, 250).filter(function (i) { return i && typeof i === 'object'; }).map(function (i) { return { nome: str(i.nome, 80), qtd: vn(i.qtd), unit: vn(i.unit), total: vn(i.total) }; }) };
     });
     /* lembretes, hábitos (rotina) e checks foram removidos do app: backups antigos importam e essas partes são descartadas */
     return s;

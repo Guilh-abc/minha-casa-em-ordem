@@ -28,4 +28,12 @@ t('mês: total por loja (junta maiúsculas e espaços), maior primeiro', m.porLo
 t('compra sem total usa a soma dos itens', m.porLoja.some(function (x) { return x.loja === 'Sem total' && x.total === 5; }));
 t('meses com compras, mais recente primeiro', JSON.stringify(N.meses(L)) === '["2026-10","2026-09"]');
 t('brl', N.brl(1234.5) === 'R$ 1.234,50');
+var J = N.juntar([{ loja: 'MERCADO X', data: '30/10/2026', itens: [{ nome: 'Arroz', total: '25,90' }, { nome: 'Feijão', total: '8,49' }, { nome: 'Feijão', total: '8,49' }], total: 'R$ 0,00' },
+  { loja: '', itens: [{ nome: 'FEIJAO', total: '8,49' }, { nome: 'Leite', total: '4,79' }], total: '' }, { itens: [{ nome: 'Café', total: '19,90' }], total: '67,57', desconto: '' }], '2026-10-30');
+t('juntar: loja e data da 1ª parte', J.loja === 'MERCADO X' && J.data === '2026-10-30');
+t('juntar: emenda tira 1 repetido, mantém item igual dentro da mesma foto', J.itens.length === 5 && J.repetidos === 1);
+t('juntar: total da parte que tem, R$ 0,00 não conta como total', J.total === 67.57);
+t('normalizar: R$ 0,00 vira falta de total', N.normalizar({ itens: [{ nome: 'a', total: '5' }], total: 'R$ 0,00' }).total === null);
+t('totalDe: total 0 com itens usa a soma', N.totalDe({ total: 0, itens: [{ total: 10 }, { total: 5 }] }) === 15);
+t('semValor: tudo vazio', N.semValor({ total: 0, itens: [{ total: null }] }) && !N.semValor({ total: 3, itens: [] }));
 console.log(ok + ' ok, ' + falhas + ' falhas'); process.exit(falhas ? 1 : 0);

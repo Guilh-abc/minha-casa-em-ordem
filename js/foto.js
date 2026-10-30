@@ -54,11 +54,14 @@
   function escolher(camera, o) {
     var at = { type: 'file', accept: 'image/*', style: 'position:fixed;left:-9999px', 'aria-hidden': 'true', tabindex: '-1', 'data-fid': 'ft:arquivo' };
     if (camera) at.capture = 'environment';
+    if (!camera && o && o.arquivos) at.multiple = 'multiple';   /* nota longa: várias fotos de uma vez */
     var inp = h('input', at);
     inp.addEventListener('change', function () {
-      var f = inp.files && inp.files[0];
+      var fs = inp.files ? Array.prototype.slice.call(inp.files, 0, 12) : [];
       inp.value = ''; if (inp.parentNode) inp.parentNode.removeChild(inp);
-      if (f) enviar(f, o);
+      if (!fs.length) return;
+      if (o && o.arquivos) return o.arquivos(fs);
+      enviar(fs[0], o);
     });
     document.body.appendChild(inp); inp.click();
   }
@@ -156,5 +159,5 @@
       PS.notas ? PS.notas.secao() : null);
   } };
 
-  PS.foto = { salvar: salvar, escolher: escolher, botao: botao, revisar: revisar, reduzir: reduzir };
+  PS.foto = { enviar: enviar, salvar: salvar, escolher: escolher, botao: botao, revisar: revisar, reduzir: reduzir };
 })(window);

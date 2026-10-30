@@ -488,3 +488,7 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .nt-lojas { list-style: none; margin: 0; padding: 0; }
 .nt-lojas li { display: flex; justify-content: space-between; gap: var(--gap); padding: .35rem 0; border-bottom: 1px solid var(--c-linha); }
 .nt-lojas small { color: var(--c-texto-2); white-space: nowrap; }
+/* Registrar nota em partes */
+.nt-partes { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+.nt-partes-lista { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .2rem; }
+.nt-partes .ft-acoes .btn { min-height: 44px; }

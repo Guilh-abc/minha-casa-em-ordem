@@ -6,7 +6,7 @@ var MODELO = 'lfm3-1.7b';
 var ORIGENS = ['https://minha-casa-em-ordem.guilhermeromionetto.workers.dev', 'https://guilhermeromio-netto-prog.github.io', 'https://guilh-abc.github.io', 'http://localhost:8787', 'http://127.0.0.1:8787', 'http://localhost:8099'];
 export var MODELO_FOTO = 'lfm3-vl-2b';
 var MAX_FOTO = 2.2e6;
-var MAX_CORPO = 24e3, MAX_MSGS = 12, MAX_TXT = 4e3, LIM_IP = 20, JANELA = 6e5, LIM_DIA = 400;
+var MAX_CORPO = 24e3, MAX_MSGS = 12, MAX_TXT = 4e3, LIM_IP = 20, LIM_FOTO = 40, JANELA = 6e5, LIM_DIA = 400;
 var porIp = new Map(), dia = { d: '', n: 0 };
 /* parâmetros do modelo (exportados para teste) */
 export var PARAMS = { max_tokens: 280, temperature: 0.2, frequency_penalty: 0.6, presence_penalty: 0.3, repetition_penalty: 1.15, stop: ['...', '…', '\n\n\n', '<<FIM>>'] };
@@ -62,13 +62,14 @@ function cors(origem) {
   return h;
 }
 function resp(obj, st, origem) { return new Response(JSON.stringify(obj), { status: st, headers: cors(origem) }); }
-function limitar(ip, env) {
-  var LIM = env && +env.LIMITE_IP > 0 ? +env.LIMITE_IP : LIM_IP;   /* LIMITE_IP só em testes locais */
+/* /foto tem cota própria (nota longa = várias fotos seguidas), sem gastar a do chat */
+function limitar(ip, env, foto) {
+  var LIM = env && +env.LIMITE_IP > 0 ? +env.LIMITE_IP : (foto ? LIM_FOTO : LIM_IP); if (foto) ip = 'foto:' + ip;   /* LIMITE_IP só em testes locais */
   var agora = Date.now(), hoje = new Date().toISOString().slice(0, 10);
   if (dia.d !== hoje) { dia.d = hoje; dia.n = 0; porIp.clear(); }
   if (dia.n >= LIM_DIA) return 'Limite diário do assistente atingido. Tente amanhã.';
   var l = (porIp.get(ip) || []).filter(function (t) { return agora - t < JANELA; });
-  if (l.length >= LIM) return 'Muitas perguntas seguidas. Espere alguns minutos.';
+  if (l.length >= LIM) return foto ? 'Muitas fotos seguidas. Espere alguns minutos e continue.' : 'Muitas perguntas seguidas. Espere alguns minutos.';
   l.push(agora); porIp.set(ip, l); dia.n++; return '';
 }
 function txt(v, n) { return typeof v === 'string' ? v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ').slice(0, n) : ''; }
@@ -95,8 +96,10 @@ var SISTEMA_FOTO = 'Você lê fotos e prints para o app Minha Casa em Ordem, de 
 /* modo nota fiscal (cupom de mercado): loja, data, itens, desconto e total, copiados como aparecem */
 var SISTEMA_NOTA = 'Você lê fotos de nota fiscal ou cupom de compra para o app Minha Casa em Ordem, de uma família brasileira. ' +
   'Responda SÓ com um objeto JSON numa linha, sem texto em volta, neste formato: ' +
-  '{"loja":"nome da loja","data":"DD/MM","itens":[{"nome":"produto","qtd":"1","unit":"R$ 0,00","total":"R$ 0,00"}],"desconto":"R$ 0,00","total":"R$ 0,00"}. ' +
-  'Um item por linha da nota, na ordem. Copie nomes e números exatamente como aparecem. Deixe "" no que não aparecer. Nunca invente nem calcule valores.';
+  '{"loja":"nome da loja","data":"DD/MM/AAAA","itens":[{"nome":"produto","qtd":"quantidade","unit":"preço unitário","total":"valor do item"}],"desconto":"desconto","total":"valor total a pagar"}. ' +
+  'Valores como aparecem na nota, por exemplo "12,90". O total da nota é a linha VALOR TOTAL, TOTAL ou VALOR A PAGAR. ' +
+  'A foto pode ser só uma parte de uma nota longa: leia os itens que aparecem; se o cabeçalho ou o total não estiverem nesta parte, deixe "". ' +
+  'Um item por linha da nota, na ordem. Copie nomes e números exatamente como aparecem. Deixe "" no que não aparecer. Nunca escreva 0 no lugar de um valor que não aparece. Nunca invente nem calcule valores.';
 var CHAVES_NOTA = ['loja', 'data', 'desconto', 'total'], CHAVES_ITEM = ['nome', 'qtd', 'unit', 'total'];
 function campoTxt(v, n) { return typeof v === 'string' ? v.slice(0, n) : (typeof v === 'number' && isFinite(v) ? String(v) : ''); }
 export function lerNota(t) {
@@ -114,7 +117,7 @@ export function montarFoto(corpo) {
   var img = corpo && typeof corpo.imagem === 'string' ? corpo.imagem : '';
   if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(img)) return null;
   var hoje = txt(corpo.hoje, 40), nota = corpo.modo === 'nota';
-  return { model: MODELO_FOTO, max_tokens: nota ? 1200 : 300, temperature: 0.1, chat_template_kwargs: { enable_thinking: false },
+  return { model: MODELO_FOTO, max_tokens: nota ? 2000 : 300, temperature: 0.1, chat_template_kwargs: { enable_thinking: false },
     messages: [{ role: 'system', content: (nota ? SISTEMA_NOTA : SISTEMA_FOTO) + (hoje ? ' Hoje é ' + hoje + '.' : '') },
       { role: 'user', content: [{ type: 'image_url', image_url: { url: img } }, { type: 'text', text: nota ? 'Leia esta nota fiscal.' : 'Extraia os dados desta imagem.' }] }] };
 }
@@ -130,7 +133,7 @@ async function rotaFoto(req, env, origem) {
   if (Number(req.headers.get('Content-Length') || 0) > MAX_FOTO) return resp({ erro: 'Foto grande demais.' }, 413, origem);
   var bruto = await req.text();
   if (bruto.length > MAX_FOTO) return resp({ erro: 'Foto grande demais.' }, 413, origem);
-  var lim = limitar(req.headers.get('CF-Connecting-IP') || 'x', env);
+  var lim = limitar(req.headers.get('CF-Connecting-IP') || 'x', env, true);
   if (lim) return resp({ erro: lim }, 429, origem);
   var corpo; try { corpo = JSON.parse(bruto); } catch (e) { return resp({ erro: 'JSON inválido.' }, 400, origem); }
   bruto = null;

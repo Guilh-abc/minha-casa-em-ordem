@@ -40,6 +40,8 @@ with sync_playwright() as p:
     check(fc.value.element.get_attribute('capture') == 'environment', 'Tirar foto abre a câmera traseira')
     fc.value.set_files({'name': 'n.png', 'mimeType': 'image/png', 'buffer': png(0)}); pg.wait_for_timeout(900)
     check(len(pedidos) == 1 and pedidos[0].get('modo') == 'nota' and pedidos[0].get('imagem', '').startswith('data:image/'), 'envia para /foto em modo nota')
+    check(L('nt:partes').count() == 1 and 'Parte 1: 2 itens' in L('nt:partes-lista').inner_text() and L('nt:parte-camera').inner_text().strip().endswith('+ Adicionar outra parte'), 'depois da foto: + Adicionar outra parte')
+    pg.locator('.modal button', has_text='Terminei').click(); pg.wait_for_timeout(300)
     check(L('nt:editor').count() == 1, 'abre a conferência antes de salvar')
     check(L('nt:loja').input_value() == 'ATACADÃO' and L('nt:data').input_value() == '2026-10-28', 'loja e data (DD/MM vira 28/10/2026)')
     check(L('nt:i-nome:0').input_value() == 'Arroz 5kg' and L('nt:i-qtd:0').input_value() == '2' and L('nt:i-unit:0').input_value() == '22,90' and L('nt:i-total:0').input_value() == '45,80', 'item com nome, qtd, unitário e total')
