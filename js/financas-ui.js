@@ -78,7 +78,7 @@
       corpo.appendChild(h('dl', { class: 'det-info' },
         info('Nome', c.titulo), info('Valor', c.valor != null ? brl(c.valor) : 'Sem valor'), info('Vencimento', d.proximo ? dataBR(d.proximo) : ''),
         info('Categoria', NOME_CAT[c.cat] || c.cat), info('Forma de pagamento', c.forma ? F.rotuloForma(c.forma) : 'Não definida'),
-        info('Recorrência', d.recorrencia + (c.arquivada ? ' (arquivada)' : '')), info('De quem', donos[c.dono] || ''), info('Observações', c.obs || ''), info('Fatura vinculada', c.cartaoRef || '')));
+        info('Recorrência', d.recorrencia + (c.arquivada ? ' (arquivada)' : '')), info('De quem', donos[c.dono] || ''), info('Observações', c.obs || ''), info('Criada por', c.por || ''), info('Fatura vinculada', c.cartaoRef || '')));
       corpo.appendChild(h('h3', { class: 'det-tit' }, 'Histórico de pagamentos'));
       corpo.appendChild(d.historico.length ? h('ul', { class: 'det-hist', 'data-fid': 'dc:hist' }, d.historico.slice(0, 24).map(function (x) {
         return h('li', null, h('span', null, x.mes ? mesRot(x.mes) : 'Pagamento'), h('span', null, x.pagaEm ? 'pago em ' + dataBR(x.pagaEm) : 'pago'), h('span', null, x.valor != null ? brl(x.valor) : ''));

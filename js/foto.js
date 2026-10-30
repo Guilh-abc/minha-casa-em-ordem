@@ -140,7 +140,7 @@
       var det = [x.preco != null ? F.brl(x.preco) + (x.unidade ? ' / ' + x.unidade : '') : (x.unidade || ''), x.local].filter(Boolean).join(' · ');
       return h('li', { class: 'compra' + (x.comprado ? ' feito' : '') },
         h('button', { class: 'item dupla', type: 'button', role: 'checkbox', 'aria-checked': x.comprado ? 'true' : 'false', 'data-fid': 'cp:' + x.id, onclick: function () { alternar(x.id); } },
-          h('span', { class: 'caixa' + (x.comprado ? ' on' : ''), 'aria-hidden': 'true' }, I('check')), h('span', { class: 't' }, x.nome, det ? h('small', null, det) : null)),
+          h('span', { class: 'caixa' + (x.comprado ? ' on' : ''), 'aria-hidden': 'true' }, I('check')), h('span', { class: 't' }, x.nome, det ? h('small', null, det) : null, x.por ? h('span', { class: 'tag-por', 'data-fid': 'por:' + x.id }, 'por ' + x.por) : null)),
         h('button', { class: 'btn btn-icone', type: 'button', 'data-fid': 'cp-rm:' + x.id, 'aria-label': 'Remover ' + x.nome, onclick: function () { remover(x.id); } }, I('x')));
     });
     var feitos = itens.some(function (x) { return x.comprado; });

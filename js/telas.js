@@ -10,6 +10,7 @@
     return h('section', { class: 'cartao' },
       h('h2', null, I(icone), h('span', null, titulo), mais ? h('span', { class: 'mais' }, mais) : null), filhos);
   }
+  function tagPor(x) { return x.por ? h('span', { class: 'tag-por', 'data-fid': 'por:' + x.id }, 'por ' + x.por) : null; }
   function tagExemplo(x) { return x.exemplo ? h('span', { class: 'exemplo' }, 'exemplo') : null; }
   function nada() { return null; }
   function caixa(on) { return h('span', { class: 'caixa' + (on ? ' on' : ''), 'aria-hidden': 'true' }, I('check')); }
@@ -128,7 +129,7 @@
       corpo = ts.length ? ts.map(function (t) {
         var venc = t.vence ? (t.feita ? selo('neutro', 'calendario', U.dataCurta(t.vence)) : seloVenc('', t.vence, hoje, false)) : null;
         return h('button', { class: 'item tarefa' + (t.feita ? ' feito' : ''), type: 'button', role: 'checkbox', 'aria-checked': t.feita ? 'true' : 'false', 'data-fid': 'tr:' + t.id, onclick: function () { alternarFeita(t.id); } },
-          caixa(t.feita), h('span', { class: 't' }, t.titulo, tagExemplo(t), todos ? tagLista(t) : null), seloPrio(t.prio), venc);
+          caixa(t.feita), h('span', { class: 't' }, t.titulo, tagExemplo(t), todos ? tagLista(t) : null, tagPor(t)), seloPrio(t.prio), venc);
       }) : h('p', { class: 'vazio' }, 'Lista vazia. Adicione tarefas em Gerenciar → Tarefas.');
     }
     return h('div', null, h('h1', { class: 'titulo-tela' }, 'Tarefas'),
@@ -164,7 +165,7 @@
     var lista = evs.length ? evs.map(function (c) {
       var passou = c.data === hoje && c.hora && (+c.hora.slice(0, 2) * 60 + +c.hora.slice(3)) < ag.h * 60 + ag.mi - 30;
       return h('button', { class: 'item' + (passou ? ' passado' : ''), type: 'button', 'data-fid': 'cp:' + c.id + (c.origem ? '@' + c.data : ''), onclick: function () { detalheCompromisso(c); } },
-        h('span', { class: 'hora' }, c.hora || 'Dia todo'), h('span', { class: 't' }, c.titulo, tagExemplo(c)), c.local ? h('span', { class: 'meta' }, [I('pin'), ' ' + c.local]) : null);
+        h('span', { class: 'hora' }, c.hora || 'Dia todo'), h('span', { class: 't' }, c.titulo, tagExemplo(c), tagPor(c)), c.local ? h('span', { class: 'meta' }, [I('pin'), ' ' + c.local]) : null);
     }) : h('p', { class: 'vazio' }, 'Sem compromissos neste dia');
     return h('div', null,
       h('h1', { class: 'titulo-tela' }, 'Agenda', h('small', null, 'mês inteiro')),

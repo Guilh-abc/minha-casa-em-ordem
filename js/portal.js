@@ -13,7 +13,8 @@
     if (!r.ok || !/json/.test(r.headers.get('content-type') || '')) return null;
     return r.json();
   }).then(function (u) {
-    if (!u || !u.email) return;
+    if (!u || !u.email) { try { localStorage.removeItem('mco-autor'); } catch (e) {} return; }
+    try { localStorage.setItem('mco-autor', String(u.nome || u.email.split('@')[0]).slice(0, 60)); } catch (e) {}
     var box = document.createElement('span'); box.className = 'portal-conta'; box.setAttribute('data-fid', 'portal-conta');
     var nome = document.createElement('span'); nome.className = 'portal-nome'; nome.textContent = u.nome || u.email;
     var a = document.createElement('a'); a.href = '/conta'; a.className = 'btn-rodape'; a.textContent = 'Conta'; a.setAttribute('data-fid', 'portal-conta-link');

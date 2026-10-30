@@ -63,17 +63,17 @@
     s.listas = arr(o.listas).slice(0, 12).map(function (x) { return str(typeof x === 'string' ? x : (x && x.nome), 30); }).filter(Boolean);
     if (!s.listas.length) s.listas = ['Casa', 'Trabalho', 'Maria Alice'];
     s.tarefas = arr(o.tarefas).slice(0, 400).map(function (x) {
-      return { id: id(x), lista: str(x.lista, 30) || s.listas[0], titulo: str(x.titulo, 120) || 'Tarefa', prio: PRIORIDADES.indexOf(x.prio) >= 0 ? x.prio : 'media', vence: U.dataValida(x.vence) ? x.vence : '', feita: !!x.feita, dono: donoOk(x.dono), repete: PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '', gerou: str(x.gerou, 40), base: U.dataValida(x.base) ? x.base : '', exemplo: !!x.exemplo };
+      return { id: id(x), por: str(x.por, 60), lista: str(x.lista, 30) || s.listas[0], titulo: str(x.titulo, 120) || 'Tarefa', prio: PRIORIDADES.indexOf(x.prio) >= 0 ? x.prio : 'media', vence: U.dataValida(x.vence) ? x.vence : '', feita: !!x.feita, dono: donoOk(x.dono), repete: PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '', gerou: str(x.gerou, 40), base: U.dataValida(x.base) ? x.base : '', exemplo: !!x.exemplo };
     });
     s.compromissos = arr(o.compromissos).slice(0, 600).filter(function (x) { return U.dataValida(x.data); }).map(function (x) {
-      return { id: id(x), titulo: str(x.titulo, 120) || 'Compromisso', data: x.data, hora: U.horaValida(x.hora) ? x.hora : '', local: str(x.local, 80), fonte: x.fonte === 'ics' ? 'ics' : 'manual', dono: donoOk(x.dono), exemplo: !!x.exemplo, repete: x.fonte === 'ics' ? '' : PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '' };
+      return { id: id(x), por: str(x.por, 60), titulo: str(x.titulo, 120) || 'Compromisso', data: x.data, hora: U.horaValida(x.hora) ? x.hora : '', local: str(x.local, 80), fonte: x.fonte === 'ics' ? 'ics' : 'manual', dono: donoOk(x.dono), exemplo: !!x.exemplo, repete: x.fonte === 'ics' ? '' : PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '' };
     });
     s.contas = arr(o.contas).slice(0, 80).map(function (x) {
       /* pagas[mês] = true (pago, sem data) ou 'AAAA-MM-DD' (data do pagamento, manual) */
       var pagas = {}; if (x.pagas && typeof x.pagas === 'object') Object.keys(x.pagas).slice(0, 48).forEach(function (k) { if (/^\d{4}-\d{2}$/.test(k) && x.pagas[k]) pagas[k] = (typeof x.pagas[k] === 'string' && U.dataValida(x.pagas[k])) ? x.pagas[k] : true; });
       var valores = {}; if (x.valores && typeof x.valores === 'object') Object.keys(x.valores).slice(0, 48).forEach(function (k) { var n = Number(x.valores[k]); if (/^\d{4}-\d{2}$/.test(k) && isFinite(n)) valores[k] = Math.min(1e9, Math.max(0, n)); });
       var v = (x.valor === '' || x.valor == null) ? null : num(x.valor, 0, 1e9, null);
-      return { id: id(x), titulo: str(x.titulo, 80) || 'Conta', mensal: x.mensal !== false, dia: Math.round(num(x.dia, 1, 31, 1)), data: U.dataValida(x.data) ? x.data : '', valor: v, paga: !!x.paga, pagaEm: iso(x.pagaEm), pagas: pagas, valores: valores,
+      return { id: id(x), por: str(x.por, 60), titulo: str(x.titulo, 80) || 'Conta', mensal: x.mensal !== false, dia: Math.round(num(x.dia, 1, 31, 1)), data: U.dataValida(x.data) ? x.data : '', valor: v, paga: !!x.paga, pagaEm: iso(x.pagaEm), pagas: pagas, valores: valores,
         desde: /^\d{4}-\d{2}$/.test(String(x.desde || '')) ? x.desde : '', cat: CATS.indexOf(x.cat) >= 0 ? x.cat : 'casa', dono: donoOk(x.dono), icone: PS.iconeFamiliaOk(x.icone) ? x.icone : '', exemplo: !!x.exemplo,
         anual: x.anual === true, mes: x.anual === true ? Math.round(num(x.mes, 1, 12, 1)) : 0, arquivada: x.arquivada === true, forma: FORMAS.indexOf(x.forma) >= 0 ? x.forma : '',
         obs: str(x.obs, 60), fixa: /^[a-z0-9-]{0,24}$/.test(String(x.fixa || '')) ? String(x.fixa || '') : '', cartaoRef: str(x.cartaoRef, 30) };
@@ -110,12 +110,12 @@
       return { id: id(x), titulo: str(x.titulo, 100) || 'Passeio', data: iso(x.data), hora: U.horaValida(x.hora) ? x.hora : '', local: str(x.local, 120), mapa: urlOk(x.mapa) ? x.mapa : '', compromisso: str(x.compromisso, 40), exemplo: false };
     });
     s.compras = arr(o.compras).slice(0, 300).map(function (x) {
-      return { id: id(x), nome: str(x.nome, 80) || 'Item', preco: x.preco == null || x.preco === '' ? null : num(x.preco, 0, 1e6, null), unidade: str(x.unidade, 20), local: str(x.local, 60), comprado: !!x.comprado, exemplo: false };
+      return { id: id(x), por: str(x.por, 60), nome: str(x.nome, 80) || 'Item', preco: x.preco == null || x.preco === '' ? null : num(x.preco, 0, 1e6, null), unidade: str(x.unidade, 20), local: str(x.local, 60), comprado: !!x.comprado, exemplo: false };
     });
     /* compras feitas (notas fiscais ou lançadas à mão). Valores vazios ficam null: nunca inventamos. */
     function vn(v) { return v == null || v === '' ? null : num(v, -1e6, 1e7, null); }
     s.notas = arr(o.notas).slice(0, 2000).map(function (x) {
-      return { id: id(x), loja: str(x.loja, 80), data: iso(x.data), desconto: vn(x.desconto), total: vn(x.total), origem: x.origem === 'foto' ? 'foto' : 'mao',
+      return { id: id(x), por: str(x.por, 60), loja: str(x.loja, 80), data: iso(x.data), desconto: vn(x.desconto), total: vn(x.total), origem: x.origem === 'foto' ? 'foto' : 'mao',
         itens: arr(x.itens).slice(0, 80).filter(function (i) { return i && typeof i === 'object'; }).map(function (i) { return { nome: str(i.nome, 80), qtd: vn(i.qtd), unit: vn(i.unit), total: vn(i.total) }; }) };
     });
     /* lembretes, hábitos (rotina) e checks foram removidos do app: backups antigos importam e essas partes são descartadas */
@@ -204,7 +204,15 @@
     },
     CATS: CATS, DONOS: DONOS,
     /* altera e salva; quem chama pode passar silencioso=true para não re-renderizar */
-    alterar: function (fn, silencioso) { fn(estado); persistir(); if (!silencioso) notificar(); },
+    /* quem está logado (portal); vazio no GitHub Pages. Registros antigos ficam sem "por" e nada é exibido. */
+    autor: function () { try { return String(localStorage.getItem('mco-autor') || '').slice(0, 60); } catch (e) { return ''; } },
+    alterar: function (fn, silencioso) {
+      var quem = this.autor(), antes = {};
+      if (quem) ['tarefas', 'compromissos', 'contas', 'compras', 'notas'].forEach(function (c) { (estado[c] || []).forEach(function (x) { antes[x.id] = 1; }); });
+      fn(estado);
+      if (quem) ['tarefas', 'compromissos', 'contas', 'compras', 'notas'].forEach(function (c) { (estado[c] || []).forEach(function (x) { if (!antes[x.id] && !x.por && !x.exemplo) x.por = quem; }); });
+      persistir(); if (!silencioso) notificar();
+    },
     aoMudar: function (f) { ouvintes.push(f); return function () { ouvintes = ouvintes.filter(function (x) { return x !== f; }); }; },
     substituir: function (o) {
       estado = sanear(migrar(o));

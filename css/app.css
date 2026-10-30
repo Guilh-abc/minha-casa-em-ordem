@@ -36,6 +36,7 @@ html.contraste .caixa { border-color: #fff; }
 .selo { flex: 0 0 auto; display: inline-flex; align-items: center; gap: .25rem; padding: .08rem .45rem; border-radius: 99px; font-size: .58rem; font-weight: 800; letter-spacing: .02em; border: 1.5px solid currentColor; white-space: nowrap; background: rgba(0,0,0,.25); }
 .selo .ic { width: .75em; height: .75em; }
 .selo.ok { color: var(--c-ok); } .selo.aviso { color: var(--c-aviso); } .selo.perigo { color: var(--c-perigo); } .selo.neutro { color: var(--c-texto-2); } .selo.mag { color: var(--c-magenta-claro); }
+.tag-por { display: block; font-size: .72rem; font-weight: 400; color: var(--c-texto-3); }
 .exemplo { white-space: nowrap; font-size: .5rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--c-texto-3); border: 1px dashed var(--c-texto-3); border-radius: 4px; padding: 0 .3rem; margin-left: .35rem; vertical-align: middle; }
 
 .barra { height: .5rem; background: var(--c-superficie-2); border-radius: 99px; overflow: hidden; }

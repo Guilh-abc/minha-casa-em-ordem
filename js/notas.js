@@ -84,7 +84,7 @@
   function detalhe(c) {
     var conf = N.conferir(c);
     var corpo = h('div', { 'data-fid': 'nt:detalhe' },
-      h('p', null, (c.loja || 'Sem loja') + ' · ' + dbr(c.data)),
+      h('p', null, (c.loja || 'Sem loja') + ' · ' + dbr(c.data) + (c.por ? ' · por ' + c.por : '')),
       c.itens.length ? h('ul', { class: 'lista-compras nt-det-itens' }, c.itens.map(function (x) {
         var d = [x.qtd !== null ? qtxt(x.qtd) + ' x ' + (x.unit !== null ? N.brl(x.unit) : '') : '', x.total !== null ? N.brl(x.total) : 'sem total'].filter(Boolean).join(' · ');
         return h('li', { class: 'compra' }, h('span', { class: 't' }, x.nome || 'Item', h('small', null, d)));
