@@ -75,7 +75,7 @@
     csv: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 17h6"/>'
   };
   PS.iconesLista = Object.keys(P);
-  /* ícones oferecidos para lembretes e contas (rótulos em PT-BR) */
+  /* ícones oferecidos para contas (rótulos em PT-BR) */
   PS.iconesFamilia = [['', 'Nenhum'], ['casa-de-cachorro', 'Casinha de cachorro'], ['pata', 'Pet (patinha)'], ['escola', 'Escola'], ['carteira', 'Conta / carteira'], ['luz', 'Luz'], ['agua', 'Água'], ['gas', 'Gás'], ['cartao', 'Cartão'], ['carro', 'Carro / transporte'], ['sacola', 'Compras'], ['aviao', 'Viagem'], ['repetir', 'Assinatura'], ['internet', 'Internet'], ['mercado', 'Mercado'], ['casa', 'Casa'], ['remedio', 'Saúde'], ['livro', 'Livro'], ['sino', 'Aviso'], ['familia', 'Família'], ['estrela', 'Estrela']];
   PS.iconeFamiliaOk = function (n) { return PS.iconesFamilia.some(function (x) { return x[0] === n; }); };
   PS.icone = function (nome, cls) {

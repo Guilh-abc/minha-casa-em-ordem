@@ -1,4 +1,4 @@
-/* Telas: Hoje, Rotina, Tarefas, Agenda, Família, Relaxar, Importar, Instalar. */
+/* Telas: Hoje, Tarefas, Agenda, Contas a pagar, Relaxar, Importar, Instalar. */
 (function (g) {
   'use strict';
   var PS = g.PS = g.PS || {};
@@ -54,10 +54,6 @@
     });
     var tars = D.itensDoDia(s, hoje), nT = tars.length;
     var listaT = tars.slice(0, 2).map(function (it) {
-      if (it.tipo === 'lembrete') {
-        return h('button', { class: 'item', type: 'button', 'data-fid': 'lp:' + it.l.id, onclick: function () { S.alterar(function (st) { st.lembretes.forEach(function (x) { if (x.id === it.l.id) x.feito = true; }); }); } },
-          caixa(false), it.l.icone ? I(it.l.icone, 'ic-fam') : null, h('span', { class: 't' }, it.l.titulo, nada()));
-      }
       var t = it.t;
       return h('button', { class: 'item', type: 'button', 'data-fid': 'tr:' + t.id, onclick: function () { S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === t.id) x.feita = true; }); }); } },
         caixa(false), h('span', { class: 't' }, t.titulo, nada()));
@@ -73,28 +69,6 @@
         cartao('Tarefas do dia', 'lista', listaT.length ? listaT : h('p', { class: 'vazio' }, 'Nenhuma tarefa para hoje. Tudo em dia!'), nT > 2 ? '+' + (nT - 2) : null)),
       h('div', { class: 'coluna' },
         frase ? cartao('Foco do dia', 'alvo', h('p', { class: 'foco' }, frase)) : null)));
-  } };
-
-  /* ---------- ROTINA ---------- */
-  views.rotina = { reativo: true, titulo: 'Rotina', render: function () {
-    var s = S.get(), hoje = U.hoje(), seg = U.somaDias(hoje, -((U.dowIso(hoje) + 6) % 7));
-    var feitos = s.habitos.filter(function (x) { return S.habitoFeito(x.id, hoje); }).length, tot = s.habitos.length, pct = tot ? Math.round(feitos * 100 / tot) : 0;
-    var lista = s.habitos.map(function (x) {
-      var on = S.habitoFeito(x.id, hoje), seq = S.sequencia(x.id), dias = [];
-      for (var i = 0; i < 7; i++) {
-        var d = U.somaDias(seg, i), f = S.habitoFeito(x.id, d);
-        dias.push(h('span', { class: 'dia' + (f ? ' on' : '') + (d === hoje ? ' hoje-d' : '') + (d > hoje ? ' futuro' : ''), title: U.dataCurta(d) }, h('span', null, U.DIAS_CURTOS[U.dowIso(d)].charAt(0)), h('i')));
-      }
-      return h('button', { class: 'habito', type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false', 'data-fid': 'hb:' + x.id, onclick: function () { S.alternarHabito(x.id, hoje); } },
-        I(x.icone, 'icone'),
-        h('span', null, h('span', { class: 'nome' }, x.nome, tagExemplo(x)), h('span', { class: 'seq' }, seq ? [I('chama'), seq + (seq === 1 ? ' dia seguido' : ' dias seguidos')] : 'Sem sequência ainda')),
-        h('span', { class: 'semana' }, dias), caixa(on));
-    });
-    return h('div', null,
-      h('h1', { class: 'titulo-tela' }, 'Rotina', h('small', null, U.dataLonga(hoje))),
-      tot ? h('div', { class: 'cartao resumo-rotina' }, h('div', { class: 'progresso-txt' }, h('strong', null, feitos + ' de ' + tot), h('span', null, pct + '% dos hábitos de hoje')),
-        h('div', { class: 'barra' }, h('i', { style: 'width:' + pct + '%' }))) : null,
-      lista.length ? lista : h('p', { class: 'vazio' }, 'Nenhum hábito cadastrado. Abra Gerenciar → Hábitos.'));
   } };
 
   /* ---------- TAREFAS ---------- */
@@ -203,27 +177,11 @@
       h('p', { class: 'nota' }, 'Para cadastrar ou importar um arquivo .ics, use Gerenciar → Agenda.'));
   } };
 
-  /* ---------- FAMÍLIA ---------- */
-  views.familia = { reativo: true, titulo: 'Família', render: function () {
-    var s = S.get(), hoje = U.hoje(), m0 = U.ym(hoje);
-    var lems = s.lembretes.map(function (l) { var o = D.ocorrenciaVisivel(D.ocorrenciasLembrete(l, hoje), hoje); return { l: l, data: o.data, chave: o.chave, feito: o.feito }; }).sort(function (a, b) {
-      if (!a.data !== !b.data) return a.data ? 1 : -1;                    /* pendências sem data primeiro */
-      if (!a.data) return a.feito !== b.feito ? (a.feito ? 1 : -1) : 0;
-      return a.data < b.data ? -1 : 1;
-    });
-    var li = lems.map(function (x) {
-      return h('button', { class: 'item dupla' + (x.feito ? ' feito' : ''), type: 'button', role: 'checkbox', 'aria-checked': x.feito ? 'true' : 'false', 'data-fid': 'lm:' + x.l.id,
-        onclick: function () { S.alterar(function (st) { st.lembretes.forEach(function (y) { if (y.id === x.l.id) { if (!y.dia) { y.feito = !y.feito; return; } y.feitos = y.feitos || {}; if (y.feitos[x.chave]) delete y.feitos[x.chave]; else y.feitos[x.chave] = true; } }); }); } },
-        caixa(x.feito), x.l.icone ? I(x.l.icone, 'ic-fam') : null, h('span', { class: 't' }, x.l.titulo, tagExemplo(x.l), x.l.obs ? h('small', null, x.l.obs) : null),
-        x.feito ? selo('ok', 'check', 'Feito') : (x.data ? seloVenc('', x.data, hoje, false) : selo(x.l.prio === 'alta' ? 'aviso' : 'neutro', x.l.prio === 'alta' ? 'alerta' : 'sino', x.l.prio === 'alta' ? 'Pendente · alta' : 'Pendente')));
-    });
-    return h('div', null, h('h1', { class: 'titulo-tela' }, 'Família e contas', h('small', null, 'toque OK para marcar')),
-      h('div', { class: 'duas-colunas' },
-        cartao('Lembretes', 'sino', li.length ? li : h('p', { class: 'vazio' }, 'Nenhum lembrete. Cadastre em Gerenciar → Família.')),
-        PS.finUI.painel(s, hoje),
-        cartao('Lista de compras', 'sacola', h('div', null,
-          h('p', { class: 'dica' }, (function (n) { return n ? n + (n === 1 ? ' item a comprar.' : ' itens a comprar.') : 'Nada a comprar agora.'; })((s.compras || []).filter(function (x) { return !x.comprado; }).length)),
-          h('div', { class: 'acoes ft-acoes' }, PS.foto ? PS.foto.botao() : null, h('a', { class: 'btn', href: '#/compras', 'data-fid': 'fam:compras' }, 'Abrir lista'))))));
+  /* ---------- CONTAS A PAGAR (antiga Família) ---------- */
+  views.contas = { reativo: true, titulo: 'Contas a pagar', render: function () {
+    var s = S.get(), hoje = U.hoje();
+    return h('div', null, h('h1', { class: 'titulo-tela' }, 'Contas a pagar', h('small', null, 'toque na conta para ver e editar')),
+      h('div', { class: 'contas-tela' }, PS.finUI.painel(s, hoje)));
   } };
 
   /* ---------- RELAXAR ---------- */
@@ -244,12 +202,12 @@
     var dados = null, erro = null;
     try { dados = S.sanear(S.lerLink(param || '')); } catch (e) { erro = 'Link inválido ou incompleto.'; }
     if (erro) return h('div', null, h('h1', { class: 'titulo-tela' }, 'Importar configuração'), h('p', { class: 'nota aviso' }, erro + ' Peça um novo link em Gerenciar → Backup, ou use o arquivo JSON.'), h('div', { class: 'acoes' }, h('a', { class: 'btn primario', href: '#/' }, 'Voltar ao Hoje')));
-    var resumo = [dados.habitos.length + ' hábitos', dados.tarefas.length + ' tarefas', dados.compromissos.length + ' compromissos', dados.lembretes.length + ' lembretes', dados.contas.length + ' contas', dados.links.length + ' links', 'cidade ' + dados.config.cidade];
+    var resumo = [dados.tarefas.length + ' tarefas', dados.compromissos.length + ' compromissos', dados.contas.length + ' contas', dados.links.length + ' links', 'cidade ' + dados.config.cidade];
     return h('div', null, h('h1', { class: 'titulo-tela' }, 'Importar configuração'),
       h('div', { class: 'cartao' }, h('p', null, 'Este link traz:'), h('p', { class: 'foco', style: 'margin-top:.4rem' }, resumo.join(' · ')),
-        h('p', { class: 'nota aviso' }, 'Importar SUBSTITUI os dados atuais deste aparelho (o histórico de hábitos é mantido).')),
+        h('p', { class: 'nota aviso' }, 'Importar SUBSTITUI os dados atuais deste aparelho.')),
       h('div', { class: 'acoes' },
-        h('button', { class: 'btn primario', type: 'button', onclick: function () { S.substituir(dados, true); PS.aplicarConfig(); PS.aviso('Configuração importada'); g.location.hash = '#/'; } }, 'Importar e substituir'),
+        h('button', { class: 'btn primario', type: 'button', onclick: function () { S.substituir(dados); PS.aplicarConfig(); PS.aviso('Configuração importada'); g.location.hash = '#/'; } }, 'Importar e substituir'),
         h('a', { class: 'btn', href: '#/' }, 'Cancelar')));
   } };
 

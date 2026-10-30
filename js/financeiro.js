@@ -217,7 +217,7 @@
     return { meses: meses, porCategoria: porCat };
   };
 
-  /* total do mês corrente em Família: a pagar / pago */
+  /* total do mês corrente em Contas a pagar: a pagar / pago */
   F.totaisDoMes = function (s, hoje) {
     var m = U.ym(hoje), r = { aPagar: 0, pago: 0, n: 0, nPagas: 0 };
     (s.contas || []).forEach(function (c) {

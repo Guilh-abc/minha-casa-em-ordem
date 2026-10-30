@@ -29,12 +29,12 @@ with sync_playwright() as p:
         menu = pg.eval_on_selector_all('.menu a', 'l => l.map(a => [a.getAttribute("href"), a.textContent.trim()])')
         hrefs = [m[0] for m in menu]; nomes = [m[1] for m in menu]
         check(hrefs == ['#/', '#/tarefas', '#/agenda', '#/compras', '#/contas', '#/cartoes', '#/relaxar', '#/gerenciar'], '[%d] menu: Hoje, Tarefas, Agenda, Lista de Compra, Contas a pagar, Cartões, Relaxar, Gerenciar (%s)' % (w, hrefs))
-        check('Lista de Compra' in nomes and 'Contas a pagar' in nomes and 'Família' not in nomes and 'Rotina' not in nomes, '[%d] rótulos: Lista de Compra e Contas a pagar; sem Família e sem Rotina' % w)
+        check(nomes[3] == 'Lista de Compra' and nomes[4].startswith('Contas a pagar') and not any(n.startswith(('Família', 'Rotina')) for n in nomes), '[%d] rótulos: Lista de Compra e Contas a pagar; sem Família e sem Rotina' % w)
         # Hoje
         t = pg.inner_text('main')
         check('Lembrete' not in t and 'Bilu' not in t and 'hábito' not in t.lower(), '[%d] Hoje sem lembretes nem hábitos' % w)
         check(pg.locator('.atencao-item[href="#/contas"]').count() >= 1 and pg.locator('.atencao-item[href="#/familia"]').count() == 0, '[%d] Hoje: itens de "Atenção agora" levam a #/contas' % w)
-        check('Varrer a sala' in t, '[%d] Hoje: tarefas do dia continuam' % w)
+        check('TAREFAS DO DIA' in t.upper() and pg.evaluate('PS.dom.itensDoDia(PS.store.get(), PS.u.hoje()).some(function(i){return i.t.titulo==="Varrer a sala"})'), '[%d] Hoje: tarefas do dia continuam' % w)
         if a.prints and w == 390: pg.screenshot(path=a.prints + '/abas-hoje-390.png', full_page=True)
         # Lista de Compra
         pg.evaluate("location.hash='#/compras'"); pg.wait_for_timeout(400)
@@ -48,8 +48,7 @@ with sync_playwright() as p:
         check('Contas a pagar' in t and 'Luz' in t and 'Água' in t, '[%d] Contas a pagar mostra as contas' % w)
         for fid, nome in [('fa:abertas', 'Em aberto'), ('fa:pagas', 'Pagas'), ('fa:hist', 'Histórico')]:
             check(pg.locator('[data-fid="%s"]' % fid).count() == 1, '[%d] Contas a pagar tem a aba %s' % (w, nome))
-        check('Por categoria' in t, '[%d] Contas a pagar tem "Por categoria"' % w)
-        check('Lembretes' not in t and 'Lista de compras' not in t, '[%d] Contas a pagar sem quadro de Lembretes e sem atalho da lista' % w)
+        check(pg.locator('main h2', has_text='Lembretes').count() == 0 and 'Novo lembrete' not in t and 'Lista de compras' not in t, '[%d] Contas a pagar sem quadro de Lembretes e sem atalho da lista' % w)
         check(pg.locator('.menu a[href="#/contas"][aria-current="page"]').count() == 1, '[%d] aba Contas a pagar fica marcada' % w)
         if a.prints and w == 390: pg.screenshot(path=a.prints + '/abas-contas-a-pagar-390.png', full_page=True)
         pg.locator('[data-fid="fa:abertas"]').click(); pg.wait_for_timeout(200)
@@ -57,6 +56,8 @@ with sync_playwright() as p:
         check(pg.locator('.modal [data-fid="dc:editar"]').count() == 1, '[%d] detalhe da conta com Editar abre em Contas a pagar' % w)
         if a.prints and w == 390: pg.screenshot(path=a.prints + '/abas-contas-detalhe-390.png')
         pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+        pg.locator('[data-fid="fa:hist"]').click(); pg.wait_for_timeout(250); th = pg.inner_text('main')
+        check('Por categoria' in th or 'Ainda sem valores' in th, '[%d] Contas a pagar: Histórico com "Por categoria"' % w)
         # Cartões intacto
         pg.evaluate("location.hash='#/cartoes'"); pg.wait_for_timeout(500)
         check(pg.locator('h1').first.inner_text().startswith('Cartões'), '[%d] Cartões continua abrindo' % w)

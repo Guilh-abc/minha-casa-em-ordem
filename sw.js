@@ -54,7 +54,7 @@ function checarAvisos() {
     r.v.agenda.forEach(function (a) { if (a.avisar === hoje && !env[a.chave]) novos.push(a); });
     if (!novos.length) return;
     novos.forEach(function (a) { env[a.chave] = hoje; });
-    return Promise.all(novos.map(function (a) { return self.registration.showNotification(a.titulo, { body: a.corpo, tag: a.chave, icon: 'icons/icon-192.png', data: { url: '#/familia' }, lang: 'pt-BR' }); })).then(function () {
+    return Promise.all(novos.map(function (a) { return self.registration.showNotification(a.titulo, { body: a.corpo, tag: a.chave, icon: 'icons/icon-192.png', data: { url: '#/contas' }, lang: 'pt-BR' }); })).then(function () {
       var tx = r.db.transaction('kv', 'readwrite'); r.v.enviados = env; tx.objectStore('kv').put(r.v, 'agenda');
     });
   });
@@ -62,7 +62,7 @@ function checarAvisos() {
 self.addEventListener('periodicsync', function (e) { if (e.tag === 'painel-contas') e.waitUntil(checarAvisos()); });
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
-  var alvo = new URL((e.notification.data && e.notification.data.url) || '#/familia', self.registration.scope).href;
+  var alvo = new URL((e.notification.data && e.notification.data.url) || '#/contas', self.registration.scope).href;
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
     for (var i = 0; i < cs.length; i++) { if ('focus' in cs[i]) { cs[i].navigate && cs[i].navigate(alvo); return cs[i].focus(); } }
     return self.clients.openWindow(alvo);

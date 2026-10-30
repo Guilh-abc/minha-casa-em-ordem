@@ -63,31 +63,6 @@ html.contraste .barra { border: 1px solid #fff; }
 .clima .desc { font-size: .72rem; font-weight: 700; }
 .clima .det { font-size: .62rem; color: var(--c-texto-2); line-height: 1.35; margin-left: auto; text-align: right; }
 .foco { font-size: .95rem; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
-.progresso-txt { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: .35rem; }
-.progresso-txt strong { font-size: 1.4rem; font-weight: 800; color: var(--c-magenta); letter-spacing: -.02em; }
-.progresso-txt span { font-size: .62rem; color: var(--c-texto-2); }
-.chips-habitos { display: grid; grid-template-columns: 1fr; gap: .15rem .3rem; margin-top: .45rem; }
-.chips-habitos .item { padding: .15rem .35rem; min-height: 1.7rem; }
-.chips-habitos .t { font-size: .72rem; white-space: nowrap; }
-.chips-habitos .item { min-height: 1.5rem; padding-top: .05rem; padding-bottom: .05rem; }
-
-/* ROTINA */
-.habito { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: .6rem; width: 100%; padding: .4rem .7rem; margin-bottom: .35rem; border-radius: var(--raio-g); background: var(--c-superficie); border: 0; text-align: left; }
-.habito:focus { background: var(--c-superficie-2); }
-.habito .ic.icone { width: 1.5rem; height: 1.5rem; color: var(--c-magenta-claro); }
-.habito .nome { font-size: .95rem; font-weight: 800; }
-.habito .seq { font-size: .62rem; color: var(--c-texto-2); display: flex; align-items: center; gap: .25rem; margin-top: .1rem; }
-.habito .seq .ic { color: var(--c-aviso); }
-.semana { display: flex; gap: .3rem; }
-.dia { display: flex; flex-direction: column; align-items: center; gap: .1rem; font-size: .5rem; color: var(--c-texto-3); font-weight: 700; text-transform: uppercase; }
-.dia i { width: 1.05rem; height: 1.05rem; border-radius: 50%; border: .12rem solid var(--c-texto-3); display: block; }
-.dia.on i { background: var(--c-magenta); border-color: var(--c-magenta); }
-.dia.hoje-d i { box-shadow: 0 0 0 .12rem var(--c-fundo-0), 0 0 0 .22rem var(--c-texto); }
-.dia.futuro { opacity: .45; }
-.habito .caixa { width: 1.5rem; height: 1.5rem; }
-.habito .caixa .ic { width: 1.1rem; height: 1.1rem; }
-.resumo-rotina { margin-bottom: .6rem; }
-.resumo-rotina .progresso-txt strong { font-size: 1.6rem; }
 
 /* TAREFAS */
 .abas { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .55rem; }
@@ -164,7 +139,6 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 @media (max-width: 799px) {
   .hoje, .duas-colunas { grid-template-columns: 1fr; }
   .tiles { grid-template-columns: 1fr 1fr; }
-  .habito { grid-template-columns: auto 1fr auto; } .habito .semana { grid-column: 1 / -1; order: 5; }
   .relogio { font-size: 3.2rem; }
   .item .t { font-size: .95rem; } .item .meta { font-size: .78rem; }
   .btn { font-size: .88rem; min-height: 2.6rem; }
@@ -176,10 +150,6 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .aba{display:inline-block;text-align:center}
 
 .hoje .item .t { font-size: .8rem; }
-.chips-habitos { gap: 0; margin-top: .3rem; }
-.chips-habitos .item { min-height: 1.2rem; }
-.chips-habitos .caixa { width: 1.05rem; height: 1.05rem; }
-.chips-habitos .caixa .ic { width: .8rem; height: .8rem; }
 
 /* ícone de lembrete/conta (casinha, escola, luz...) */
 .item .ic.ic-fam { width: 1.15rem; height: 1.15rem; color: var(--c-magenta-claro); margin-top: 0; }
@@ -258,14 +228,12 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .menu a { position: relative; }
 .badge-menu { display: inline-block; min-width: 1.15em; margin-left: .35rem; padding: 0 .3em; border-radius: 99px; background: var(--c-perigo); color: #000; font-size: .62em; font-weight: 900; text-align: center; vertical-align: .15em; }
 .campo input[type="date"] { min-height: 1.9rem; padding: .25rem .5rem; border-radius: var(--raio); border: 2px solid var(--c-linha); background: var(--c-fundo-0); color: var(--c-texto); font-size: .8rem; }
-.hoje .chips-habitos { display: grid; grid-template-columns: 1fr 1fr; gap: .1rem .4rem; }
 .hoje-wrap .atencao { padding: .2rem .45rem; }
 .hoje-wrap .atencao > h2 { flex-basis: 6.4rem; font-size: .56rem; }
 .hoje-wrap .atencao-item { padding: .15rem .45rem; }
 .hoje-wrap .atencao-item .t { font-size: .78rem; }
 .hoje-wrap .atencao-item .selo { font-size: .56rem; padding: .08rem .35rem; }
 .hoje-wrap .atencao-item .selo .ic { width: .75rem; height: .75rem; }
-.hoje .chips-habitos .item { gap: .3rem; min-width: 0; } .hoje .chips-habitos .t { font-size: .64rem; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 760px) {
   .atencao, .hoje-wrap .atencao { flex-wrap: wrap; }
   .atencao > h2, .hoje-wrap .atencao > h2 { flex: 1 1 100%; }

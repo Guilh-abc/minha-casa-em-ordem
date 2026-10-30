@@ -38,7 +38,7 @@
   }
 
   function mostrar(l) {
-    var opc = { body: l.corpo, tag: l.chave, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: l.href || '#/familia' }, lang: 'pt-BR' };
+    var opc = { body: l.corpo, tag: l.chave, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: l.href || '#/contas' }, lang: 'pt-BR' };
     if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
       return navigator.serviceWorker.ready.then(function (reg) { return reg.showNotification(l.titulo, opc); }).catch(function () { try { new Notification(l.titulo, opc); } catch (e) { /* ok */ } });
     }
@@ -66,7 +66,7 @@
       return (s.sw ? navigator.serviceWorker.ready : Promise.resolve(null)).then(function (reg) {
         if (reg && reg.periodicSync) { try { return reg.periodicSync.register('painel-contas', { minInterval: 12 * 3600 * 1000 }).catch(function () {}); } catch (e) { /* ok */ } }
       }).then(function () {
-        salvarAgenda(); mostrar({ chave: 'teste:' + Date.now(), titulo: 'Avisos ligados', corpo: 'Você será avisado sobre contas e faturas a vencer.', href: '#/familia' });
+        salvarAgenda(); mostrar({ chave: 'teste:' + Date.now(), titulo: 'Avisos ligados', corpo: 'Você será avisado sobre contas e faturas a vencer.', href: '#/contas' });
         return { ok: true, msg: 'Avisos ligados neste aparelho.' };
       });
     });
@@ -80,11 +80,11 @@
       'O jeito confiável é "Adicionar ao calendário (.ics)": o alarme fica no calendário do celular e toca mesmo com o painel fechado. Nada disso paga ou confirma pagamento.';
   }
 
-  /* emblema no menu (Família) e no ícone do app, com vencidas + hoje */
+  /* emblema no menu (Contas a pagar) e no ícone do app, com vencidas + hoje */
   function atualizarBadge() {
     try {
       var r = F.resumo(F.pendencias(S.get(), U.hoje(), 7)), n = r.urgentes;
-      var a = document.querySelector('.menu a[href="#/familia"]');
+      var a = document.querySelector('.menu a[href="#/contas"]');
       if (a) {
         var b = a.querySelector('.badge-menu');
         if (n > 0) { if (!b) { b = document.createElement('span'); b.className = 'badge-menu'; a.appendChild(b); } b.textContent = n; b.setAttribute('aria-label', n + (n > 1 ? ' contas urgentes' : ' conta urgente')); }
