@@ -68,3 +68,7 @@ Workers: 100 mil requisições/dia **para a conta inteira** (compartilhado com o
 - `node sync-worker/teste-worker.mjs [URL]` — Worker real via curl-like (cria família descartável e exclui).
 - `python3 tools/teste-sync.py` — dois perfis de navegador, cifrado, contra o Worker real (edição, exclusão, 60 s, ausência de texto claro).
 - Depois de testes, nenhum dado de teste deve permanecer no D1 (`select count(*)` nas 4 tabelas = 0).
+
+## Coleções que saíram do app
+
+`lembretes`, `habitos` e `checks` (rotina) não existem mais. O aparelho atualizado não envia essas coleções e apaga da nuvem os itens que ainda estavam lá. Se um aparelho com a versão antiga mandar algum item delas, o novo aceita e ignora, e a sincronização segue normal. Backups antigos importam e essas partes são descartadas.
