@@ -121,7 +121,7 @@
       if (edit) { if (k === 'Escape' || c === 27) { alvo.blur(); e.preventDefault(); } return; }
       e.preventDefault(); voltar(); return;
     }
-    if (MENU[k] || MENU[c]) { e.preventDefault(); focarMenu(); return; }
+    if (!edit && (MENU[k] || MENU[c])) { e.preventDefault(); focarMenu(); return; }   /* 82 = tecla R: só vale fora de campo de texto */
     if (!edit && !e.shiftKey && /^[1-7]$/.test(k || '')) { var r = ROTAS_ATALHO[+k - 1]; g.location.hash = '#/' + r; }
   }
   document.addEventListener('keydown', aoTecla, true);

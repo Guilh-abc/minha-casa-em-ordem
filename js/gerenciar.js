@@ -27,15 +27,15 @@
   /* editor genérico de coleção de objetos */
   function editor(o) {
     var box = h('div');
-    function desenhar(focoNovo) {
+    function desenhar(focoId) {
       U.limpar(box);
       var lista = S.get()[o.colecao], ord = o.ordenar ? o.ordenar(lista) : lista;
       box.appendChild(h('div', { class: 'acoes', style: 'margin-top:0;margin-bottom:.6rem' }, h('button', { class: 'btn primario', type: 'button', onclick: adicionar }, '+ ' + o.rotuloAdd)));
       if (!ord.length) box.appendChild(h('p', { class: 'vazio' }, 'Nada cadastrado ainda.'));
       ord.forEach(function (item) { box.appendChild(linha(item)); });
-      if (focoNovo) { var i = box.querySelector('.form-linha input, .form-linha select'); if (i) i.focus(); }
+      if (focoId) { var ln = box.querySelector('.form-linha[data-id="' + focoId + '"]'), i = ln && ln.querySelector('input, select'); if (i) i.focus(); }   /* foca o item novo, não o primeiro da lista ordenada */
     }
-    function adicionar() { S.alterar(function (s) { s[o.colecao].unshift(o.novo(s)); }, true); desenhar(true); }
+    function adicionar() { var n = null; S.alterar(function (s) { n = o.novo(s); s[o.colecao].unshift(n); }, true); desenhar(n && n.id); }
     function mudou(item, f, v) {
       S.alterar(function () {
         if (f.set) f.set(item, v); else if (f.tipo === 'number') item[f.k] = v === '' ? null : Number(v); else item[f.k] = v;
@@ -45,7 +45,7 @@
     }
     function linha(item) {
       var campos = o.campos.filter(function (f) { return !f.mostrar || f.mostrar(item); });
-      return h('div', { class: 'form-linha' },
+      return h('div', { class: 'form-linha', 'data-id': item.id || null },
         h('div', { class: 'campos' }, campos.map(function (f) { return campoEl(item, f, mudou); })),
         h('div', { class: 'linha-fim' }, h('span', { class: 'nota' }, [item.exemplo ? 'Exemplo — edite ou remova. ' : '', item.fonte === 'ics' ? 'Importado de .ics. ' : '']),
           h('button', { class: 'btn perigo', type: 'button', onclick: function () {
