@@ -2,7 +2,7 @@
    Segredo: LIQUID_API_KEY (secret_text). Nunca logar o corpo nem a chave. */
 var API = 'https://api.liquid.ai/openai/v1/chat/completions';
 var MODELO = 'lfm3-1.7b';
-var ORIGENS = ['https://minha-casa-em-ordem.guilhermeromionetto.workers.dev', 'http://localhost:8787', 'http://127.0.0.1:8787', 'http://localhost:8099'];
+var ORIGENS = ['https://minha-casa-em-ordem.guilhermeromionetto.workers.dev', 'https://guilh-abc.github.io', 'http://localhost:8787', 'http://127.0.0.1:8787', 'http://localhost:8099'];
 var MAX_CORPO = 24000;          /* bytes do pedido */
 var MAX_MSGS = 12;
 var MAX_TXT = 4000;             /* caracteres por mensagem */
