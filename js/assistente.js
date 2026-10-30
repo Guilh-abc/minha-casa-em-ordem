@@ -40,19 +40,16 @@
   }
 
   /* extrai <<SUGESTAO {...}>> e valida; devolve { texto, sugestao|null } */
-  function separar(txt) {
-    var m = /<<\s*SUGEST[AÃ]O\s*(\{[\s\S]*?\})\s*>>/i.exec(txt || ''), sug = null;
-    if (m) {
-      try {
-        var o = JSON.parse(m[1]), t = String(o.titulo || '').slice(0, 120).trim();
-        if (t && o.tipo === 'tarefa') sug = { tipo: 'tarefa', titulo: t, data: U.dataValida(o.data) ? o.data : '' };
-        else if (t && o.tipo === 'conta' && U.dataValida(o.vence)) sug = { tipo: 'conta', titulo: t.slice(0, 80), vence: o.vence, valor: isFinite(Number(o.valor)) && Number(o.valor) > 0 ? Math.round(Number(o.valor) * 100) / 100 : null };
-        else if (t && o.tipo === 'compromisso' && U.dataValida(o.data)) sug = { tipo: 'compromisso', titulo: t, data: o.data, hora: U.horaValida(o.hora) ? o.hora : '' };
-      } catch (e) { sug = null; }
-      txt = txt.replace(m[0], '').trim();
+  function separar(txt, podeSugerir) {
+    var r = C.extrairSugestoes(txt), sug = null, o = podeSugerir ? r.sugestoes[0] : null;
+    if (o) {
+      var t = String(o.titulo || '').slice(0, 120).trim();
+      if (t && o.tipo === 'tarefa') sug = { tipo: 'tarefa', titulo: t, data: U.dataValida(o.data) ? o.data : '' };
+      else if (t && o.tipo === 'conta' && U.dataValida(o.vence)) sug = { tipo: 'conta', titulo: t.slice(0, 80), vence: o.vence, valor: isFinite(Number(o.valor)) && Number(o.valor) > 0 ? Math.round(Number(o.valor) * 100) / 100 : null };
+      else if (t && o.tipo === 'compromisso' && U.dataValida(o.data)) sug = { tipo: 'compromisso', titulo: t, data: o.data, hora: U.horaValida(o.hora) ? o.hora : '' };
     }
-    txt = String(txt || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(^|\s)\*([^*\n]+)\*(?=\s|[.,!?]|$)/g, '$1$2').replace(/^\s*-{3,}\s*$/gm, '').trim();
-    return { texto: txt, sugestao: sug };
+    var tx = r.texto.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(^|\s)\*([^*\n]+)\*(?=\s|[.,!?]|$)/g, '$1$2').replace(/^\s*-{3,}\s*$/gm, '').trim();
+    return { texto: tx, sugestao: sug };
   }
   function descSug(x) {
     if (x.tipo === 'tarefa') return 'Nova tarefa: ' + x.titulo + (x.data ? ', até ' + U.dataCurta(x.data) : '');
@@ -98,30 +95,44 @@
     return res;
   }
   /* reduz a foto no aparelho: lado maior até 1280 px, JPEG 0,8 (cai para 0,6 se ainda ficar grande) */
+  /* reduz no aparelho: objectURL (não carrega 8 MB em base64 na memória), <img> aplica a rotação EXIF, canvas JPEG */
   function reduzir(arquivo, cb) {
-    if (!arquivo || !/^image\//.test(arquivo.type || '')) { cb('Escolha uma imagem.'); return; }
-    var feito = false, cb0 = cb; cb = function (e, u, w, hh) { if (feito) return; feito = true; cb0(e, u, w, hh); };   /* uma única resposta */
-    var leitor = new FileReader();
-    leitor.onerror = function () { cb('Não consegui abrir a imagem.'); };
-    leitor.onload = function () {
-      var img = new Image();
-      img.onerror = function () { cb('Formato de imagem não suportado.'); };
-      img.onload = function () {
+    var tipo = String(arquivo && arquivo.type || '').toLowerCase(), nome = String(arquivo && arquivo.name || '').toLowerCase();
+    if (!arquivo) { cb('Escolha uma imagem.'); return; }
+    if (/hei[cf]/.test(tipo) || /\.hei[cf]$/.test(nome)) { cb('Foto em HEIC não é suportada neste navegador. Tire a foto pelo botão "Tirar foto" ou salve como JPEG.'); return; }
+    if (tipo && !/^image\//.test(tipo)) { cb('Escolha uma imagem.'); return; }
+    var feito = false, cb0 = cb, src = ''; cb = function (e, u, w, hh) { if (feito) return; feito = true; if (src) { try { URL.revokeObjectURL(src); } catch (x) { } } cb0(e, u, w, hh); };   /* uma única resposta */
+    var img = new Image();
+    img.onerror = function () { cb('Não consegui abrir essa imagem (formato não suportado). Tente outra foto ou um print.'); };
+    img.onload = function () {
+      try {
         var esc = Math.min(1, LADO_MAX / Math.max(img.width, img.height)), w = Math.max(1, Math.round(img.width * esc)), hh = Math.max(1, Math.round(img.height * esc));
         var cv = document.createElement('canvas'); cv.width = w; cv.height = hh;
         var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, hh); cx.drawImage(img, 0, 0, w, hh);
         var url = cv.toDataURL('image/jpeg', 0.8); if (url.length > MAX_DATAURL) url = cv.toDataURL('image/jpeg', 0.6);
         cv.width = cv.height = 0; img.onload = img.onerror = null; img.removeAttribute('src');
-        if (url.length > MAX_DATAURL) { cb('Imagem grande demais mesmo reduzida.'); return; }
+        if (!/^data:image\/jpeg;base64,/.test(url)) { cb('Este aparelho não conseguiu reduzir a imagem. Tente um print da tela.'); return; }
+        if (url.length > MAX_DATAURL) { cb('Imagem grande demais mesmo reduzida. Tente aproximar só o documento.'); return; }
         cb('', url, w, hh);
-      };
-      img.src = leitor.result;
+      } catch (e) { cb('Este aparelho não conseguiu reduzir a imagem (memória). Tente um print da tela.'); }
     };
-    leitor.readAsDataURL(arquivo);
+    try { src = URL.createObjectURL(arquivo); img.src = src; } catch (e) { cb('Não consegui abrir a imagem.'); }
+  }
+  /* erro de rede/HTTP -> mensagem específica (nunca "sem conexão" quando o aparelho está online) */
+  function erroLeitura(st, j, abortou) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'Você está sem internet agora. Conecte e tente de novo.';
+    if (abortou) return 'A leitura demorou demais. Tente de novo com a foto mais próxima do documento.';
+    if (st === 413) return 'Imagem grande demais para enviar. Tente aproximar só o documento.';
+    if (st === 429) return (j && j.erro) || 'Limite de leituras atingido. Espere alguns minutos e tente de novo.';
+    if (st === 422) return (j && j.erro) || 'Não consegui ler o documento. Tente uma foto mais nítida e com boa luz.';
+    if (st === 404 || st === 405) return 'A leitura de fotos está indisponível no servidor agora. Tente mais tarde.';
+    if (st >= 500) return 'O serviço de leitura falhou (' + st + '). Tente de novo em instantes.';
+    if (st) return 'Falha na leitura (' + st + ')' + (j && j.erro ? ': ' + j.erro : '.');
+    return 'Não consegui falar com o serviço de leitura (bloqueio de rede ou servidor indisponível). Tente de novo.';
   }
 
   function balao(m, i, desenhar) {
-    var filhos = [h('p', { class: 'ass-autor' }, m.papel === 'user' ? 'Você' : 'Ajudante'), h('div', { class: 'ass-texto' }, m.texto)];
+    var filhos = [h('p', { class: 'ass-autor' }, m.papel === 'user' ? 'Você' : 'Ajudante'), h('div', { class: 'ass-texto' }, m.papel === 'user' ? m.texto : C.textoFinal(C.extrairSugestoes(m.texto).texto, m.leituras || m.sugestao ? ' ' : ''))];
     if (m.sugestao) {
       var sg = m.sugestao;
       filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Sugestão de lançamento' },
@@ -174,7 +185,8 @@
       texto = String(texto || '').trim(); if (!texto || enviando) return;
       conversa.push({ papel: 'user', texto: texto }); campo.value = '';
       var hj = U.hoje(), q = C.classificar(texto, hj), fechada = q ? C.responder(q, dadosConsulta()) : null;
-      if (fechada && (rapida || !fechada.itens.length)) { responderLocal(fechada.texto); desenhar(); return; }
+      /* consultas reconhecidas (tarefas, contas, agenda) são respondidas SEMPRE pelo app, sem modelo */
+      if (fechada) { responderLocal(fechada.texto); desenhar(); return; }
       enviando = true; desenhar();
       var ctx = fechada ? 'LISTA FECHADA (estes são TODOS os itens; reformule só esta lista, não acrescente nada):\n' + fechada.texto : contexto();
       var permitido = fechada ? fechada.permitido : C.permitidoResposta(ctx, texto, hj);
@@ -183,14 +195,14 @@
         .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
         .then(function (j) {
           if (j && j.resposta) {
-            var p = separar(C.limpar(j.resposta));
-            if (fechada) { if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || fechada.texto }); else responderLocal(fechada.texto); }
-            else if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || 'Pronto.', sugestao: p.sugestao });
+            var p = separar(C.limpar(j.resposta), C.pedeCriar(texto));
+            if (fechada) { if (p.texto && C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto }); else responderLocal(fechada.texto); }
+            else if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: C.textoFinal(p.texto, p.sugestao ? 'Posso anotar isto:' : ''), sugestao: p.sugestao });
             else responderLocal('Não encontrei isso nos dados do app. Pergunte, por exemplo, o que vence essa semana ou o que tem na agenda amanhã.');
           }
           else conversa.push({ papel: 'assistant', texto: 'Não consegui responder: ' + ((j && j.erro) || 'erro desconhecido') });
         })
-        .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
+        .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: (navigator.onLine === false ? 'Você está sem internet agora. Conecte e tente de novo.' : 'Não consegui falar com o ajudante (servidor indisponível ou bloqueio de rede). Tente de novo.') }); })
         .then(function () { enviando = false; desenhar(); campo.focus(); });
     }
     /* câmera (capture) e galeria/prints (sem capture: no celular, capture abre só a câmera) */
@@ -203,17 +215,21 @@
       conversa.push({ papel: 'user', texto: 'Foto/print enviado para leitura (a imagem não é guardada).' }); desenhar(); status.textContent = 'Lendo a imagem…';
       reduzir(f, function (erro, url) {
         if (erro) { conversa.push({ papel: 'assistant', texto: erro }); enviando = false; desenhar(); return; }
-        fetch(URL_LER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imagem: url, hoje: U.hoje() }) })
-          .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
+        var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, abortou = false, st = 0;
+        var tm = setTimeout(function () { abortou = true; if (ctl) ctl.abort(); }, 60000);
+        status.textContent = 'Lendo a imagem…';
+        fetch(URL_LER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imagem: url, hoje: U.hoje() }), signal: ctl ? ctl.signal : undefined })
+          .then(function (r) { st = r.status; return r.json().catch(function () { return null; }); })
           .then(function (j) {
-            url = '';
-            if (!j || !j.leitura) { conversa.push({ papel: 'assistant', texto: 'Não consegui ler: ' + ((j && j.erro) || 'erro desconhecido') }); return; }
-            var abertas = [], st = S.get(), ex = {}; (st.contas || []).forEach(function (c) { if (c.exemplo) ex[c.id] = 1; });
-            try { abertas = PS.fin.listas(st, U.hoje()).abertas.filter(function (x) { return !ex[x.id]; }); } catch (e) { abertas = []; }
+            url = ''; clearTimeout(tm);
+            if (abortou) { conversa.push({ papel: 'assistant', texto: erroLeitura(0, null, true) }); return; }
+            if (!j || !j.leitura) { conversa.push({ papel: 'assistant', texto: erroLeitura(st, j, false) }); return; }
+            var abertas = [], st2 = S.get(), ex = {}; (st2.contas || []).forEach(function (c) { if (c.exemplo) ex[c.id] = 1; });
+            try { abertas = PS.fin.listas(st2, U.hoje()).abertas.filter(function (x) { return !ex[x.id]; }); } catch (e) { abertas = []; }
             var sugs = PS.leitura.normalizar(j.leitura, U.hoje(), abertas);
             conversa.push({ papel: 'assistant', texto: sugs.length ? 'Li a imagem. Confira e confirme o que deve ir para o app:' : 'Não reconheci esse documento. Tente boleto, comprovante, convite, acordo, lista ou cupom fiscal.', leituras: sugs });
           })
-          .catch(function () { conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
+          .catch(function () { clearTimeout(tm); conversa.push({ papel: 'assistant', texto: erroLeitura(0, null, abortou) }); })
           .then(function () { enviando = false; desenhar(); });
       });
     }
@@ -221,12 +237,31 @@
     galeria.addEventListener('change', function () { lerArquivo(galeria); });
     var btnFoto = h('label', { class: 'btn ass-btn-foto', for: 'ass-foto', 'data-fid': 'ass-btn-foto' }, I('camera'), h('span', null, 'Tirar foto'));
     var btnPrint = h('label', { class: 'btn ass-btn-foto', for: 'ass-print', 'data-fid': 'ass-btn-print' }, I('enviar'), h('span', null, 'Ler print ou imagem'));
+    /* entrada por voz (Web Speech API, pt-BR): o texto aparece no campo e é enviado quando a escuta termina */
+    var Reconhecer = g.SpeechRecognition || g.webkitSpeechRecognition, rec = null, ouvindo = false;
+    var mic = Reconhecer ? h('button', { class: 'btn btn-mic', type: 'button', 'data-fid': 'ass-voz', 'aria-label': 'Falar a pergunta', 'aria-pressed': 'false', onclick: function () { if (ouvindo) { if (rec) rec.stop(); } else ouvir(); } }, I('microfone'), h('span', { class: 'mic-rot' }, 'Falar')) : null;
+    function marcarOuvindo(v) {
+      ouvindo = v; if (!mic) return;
+      mic.setAttribute('aria-pressed', v ? 'true' : 'false'); mic.setAttribute('aria-label', v ? 'Parar de ouvir' : 'Falar a pergunta');
+      mic.classList.toggle('ouvindo', v); mic.querySelector('.mic-rot').textContent = v ? 'Ouvindo…' : 'Falar';
+      status.textContent = v ? 'Ouvindo… fale sua pergunta.' : '';
+    }
+    function ouvir() {
+      if (enviando) return;
+      try { rec = new Reconhecer(); } catch (e) { return; }
+      rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+      rec.onresult = function (ev) { var t = ''; for (var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; campo.value = t; };
+      rec.onerror = function (ev) { marcarOuvindo(false); status.textContent = ev && (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') ? 'Microfone bloqueado. Libere o acesso nas permissões do navegador.' : 'Não consegui ouvir. Tente de novo.'; rec = null; };
+      rec.onend = function () { var era = ouvindo; marcarOuvindo(false); rec = null; if (era && campo.value.trim()) enviar(campo.value); };
+      marcarOuvindo(true);
+      try { rec.start(); } catch (e) { marcarOuvindo(false); }
+    }
     var form = h('form', { class: 'ass-form', onsubmit: function (e) { e.preventDefault(); enviar(campo.value); } },
-      h('label', { class: 'campo' }, h('span', null, 'Sua pergunta'), campo), h('div', { class: 'acoes' }, btn, arquivo, btnFoto, galeria, btnPrint,
+      h('label', { class: 'campo', 'for': 'ass-pergunta' }, h('span', null, 'Sua pergunta')), h('div', { class: 'ass-linha-campo' }, campo, mic), h('div', { class: 'acoes' }, btn, arquivo, btnFoto, galeria, btnPrint,
         h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-limpar', onclick: function () { conversa = []; desenhar(); } }, 'Limpar conversa')));
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(campo.value); } });
     var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Perguntas rápidas' },
-      ['O que vence essa semana?', 'Tem conta atrasada?', 'Quais tarefas são prioridade alta?', 'O que tenho na agenda amanhã?'].map(function (q, i) {
+      ['O que vence essa semana?', 'Tem conta atrasada?', 'Quais tarefas são prioridade alta?', 'O que tenho na agenda amanhã?', 'Quais são minhas tarefas?'].map(function (q, i) {
         return h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(q, true); } }, q);
       }));
     raiz.appendChild(h('section', { class: 'cartao' }, h('h2', null, I('estrela'), h('span', null, 'Ajudante da casa')), h('p', { class: 'ass-intro' }, 'Oi! Sou o ajudante geral do app. Posso ajudar com contas e vencimentos, agenda, tarefas e lembretes: pergunte o que vence, o que está atrasado ou o que tem para amanhã. Também leio foto ou print de boleto, comprovante, acordo, convite, lista ou cupom fiscal. Se você pedir para anotar algo, eu sugiro e você confirma antes de gravar.'), atalhos, lista, status, form,

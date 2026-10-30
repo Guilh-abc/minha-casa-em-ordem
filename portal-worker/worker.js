@@ -5,7 +5,6 @@
 var ITER = 100000, SESSAO_S = 30 * 86400, LINK_S = 24 * 3600, MIN_SENHA = 12, COOKIE = '__Host-mco';
 var JANELA_S = 900, MAX_FALHAS_CONTA = 5, BLOQ_S = 900, MAX_IP = 20;
 var SYNC_ORIGEM = 'https://painel-sala-sync.guilhermeromionetto.workers.dev';
-var ASSISTENTE_ORIGEM = 'https://minha-casa-assistente.guilhermeromionetto.workers.dev';
 var enc = new TextEncoder();
 var cacheSessao = new Map();   /* hash -> {u, ate, ver}; revogação vale em até 60 s em outras instâncias */
 
@@ -42,10 +41,10 @@ function senhaFraca(s, email) {
 
 /* ---------- respostas e cabeçalhos ---------- */
 var CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; " +
-  "connect-src 'self' " + SYNC_ORIGEM + ' ' + ASSISTENTE_ORIGEM + " https://api.open-meteo.com https://geocoding-api.open-meteo.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
+  "connect-src 'self' " + SYNC_ORIGEM + " https://minha-casa-assistente.guilhermeromionetto.workers.dev https://api.open-meteo.com https://geocoding-api.open-meteo.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 function seguranca(h, tipo) {
   h.set('Content-Security-Policy', CSP); h.set('X-Content-Type-Options', 'nosniff'); h.set('Referrer-Policy', 'no-referrer'); h.set('X-Frame-Options', 'DENY');
-  h.set('Cross-Origin-Opener-Policy', 'same-origin'); h.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()'); h.set('Strict-Transport-Security', 'max-age=31536000');
+  h.set('Cross-Origin-Opener-Policy', 'same-origin'); h.set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()'); h.set('Strict-Transport-Security', 'max-age=31536000');
   if (tipo !== 'ativo') h.set('Cache-Control', 'no-store'); else h.set('Cache-Control', 'private, no-cache');
   return h;
 }

@@ -143,6 +143,19 @@
     x.valores = x.valores || {}; if (x.valor != null && x.valores[chave] == null) x.valores[chave] = x.valor;   /* guarda o valor pago neste mês (histórico) */
     return true;
   };
+  /* detalhe de uma conta (puro): recorrência em texto, próximo vencimento e histórico de pagamentos (mais recente primeiro) */
+  F.detalheConta = function (c, hoje) {
+    function br(d) { return d.split('-').reverse().join('/'); }
+    var rec = c.mensal ? 'Todo mês, dia ' + c.dia : c.anual ? 'Todo ano, ' + c.dia + ' de ' + U.MESES[(c.mes || 1) - 1].toLowerCase() : 'Uma vez' + (c.data ? ', vence ' + br(c.data) : '');
+    var hist = [];
+    if (c.mensal || c.anual) Object.keys(c.pagas || {}).filter(function (m) { return c.pagas[m]; }).sort().reverse().forEach(function (m) {
+      hist.push({ mes: m, pagaEm: typeof c.pagas[m] === 'string' ? c.pagas[m] : '', valor: valorDe(c, m) });
+    });
+    else if (c.paga) hist.push({ mes: '', pagaEm: c.pagaEm || '', valor: c.valor });
+    var prox = '';
+    try { prox = F.proximoVencimento ? F.proximoVencimento(c, hoje) : ''; } catch (e) { prox = ''; }
+    return { recorrencia: rec, historico: hist, proximo: c.mensal || c.anual ? prox : (c.data || '') };
+  };
   F.desfazerPaga = function (s, tipo, id, chave) {
     var x = achar(s, tipo, id); if (!x) return false;
     if (tipo === 'fatura') { x.status = 'aberta'; x.pagaEm = ''; return true; }

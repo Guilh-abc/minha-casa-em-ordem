@@ -8,7 +8,7 @@ var HOJE = '2026-10-30';  /* sexta */
 var D = {
   abertas: [
     { titulo: 'Luz', data: '2026-10-28', valor: 215.37, dias: -2 },
-    { titulo: 'Internet', data: '2026-11-03', valor: 120, dias: 4 },
+    { titulo: 'Internet', data: '2026-11-01', valor: 120, dias: 2 },
     { titulo: 'IPTU', data: '2026-11-20', valor: 300, dias: 21 }
   ],
   compromissos: [
@@ -27,7 +27,7 @@ var D = {
 t('amanhã a partir de 30/10 é 31/10', function () { var q = C.classificar('O que tenho na agenda amanhã?', HOJE); assert.strictEqual(q.tipo, 'agenda'); assert.strictEqual(q.ini, '2026-10-31'); assert.strictEqual(q.fim, '2026-10-31'); });
 t('amanhã vira o mês/ano', function () { assert.strictEqual(C.classificar('agenda de amanhã', '2026-12-31').ini, '2027-01-01'); });
 t('hoje', function () { var q = C.classificar('compromissos de hoje?', HOJE); assert.strictEqual(q.tipo, 'agenda'); assert.strictEqual(q.ini, HOJE); });
-t('vence essa semana = hoje..+7', function () { var q = C.classificar('O que vence essa semana?', HOJE); assert.strictEqual(q.tipo, 'vencimentos'); assert.strictEqual(q.ini, HOJE); assert.strictEqual(q.fim, '2026-11-06'); });
+t('vence essa semana = hoje..domingo', function () { var q = C.classificar('O que vence essa semana?', HOJE); assert.strictEqual(q.tipo, 'vencimentos'); assert.strictEqual(q.ini, HOJE); assert.strictEqual(q.fim, '2026-11-01'); });
 t('atrasada', function () { assert.strictEqual(C.classificar('Tem conta atrasada?', HOJE).tipo, 'atrasadas'); });
 t('prioridade alta', function () { assert.strictEqual(C.classificar('Quais tarefas são prioridade alta?', HOJE).tipo, 'prioridade'); });
 t('pergunta livre não classifica', function () { assert.strictEqual(C.classificar('Quanto gastei com mercado?', HOJE), null); });
@@ -54,7 +54,7 @@ var LISTA = C.responder(C.classificar('O que tenho na agenda amanhã?', HOJE), D
 t('resposta fiel passa', function () { assert.strictEqual(C.fiel('Amanhã (31/10) você tem Dentista às 09:30 na Clínica.', LISTA.permitido), true); });
 t('horário inventado reprova', function () { assert.strictEqual(C.fiel('Amanhã (31/10): reunião de alinhamento online às 15:00.', LISTA.permitido), false); });
 t('data errada reprova (30/10 como amanhã)', function () { assert.strictEqual(C.fiel('Amanhã (30/10/2026) você tem Dentista às 09:30.', LISTA.permitido), false); });
-t('valor inventado reprova', function () { var v = C.responder(C.classificar('O que vence essa semana?', HOJE), D); assert.strictEqual(C.fiel('Internet R$ 120,00 e Água R$ 80,00', v.permitido), false); assert.strictEqual(C.fiel('Vence a Internet, R$ 120,00, em 03/11.', v.permitido), true); });
+t('valor inventado reprova', function () { var v = C.responder(C.classificar('O que vence essa semana?', HOJE), D); assert.strictEqual(C.fiel('Internet R$ 120,00 e Água R$ 80,00', v.permitido), false); assert.strictEqual(C.fiel('Vence a Internet, R$ 120,00, em 01/11.', v.permitido), true); });
 t('item a mais (linha extra de lista) reprova', function () { assert.strictEqual(C.fiel('- Dentista 09:30\n- Reunião de alinhamento', LISTA.permitido), false); });
 t('contexto livre: data/valor fora do contexto reprova', function () { var p = C.permitidoDeTexto('- Luz: R$ 215,37, vence 2026-10-28', HOJE); assert.strictEqual(C.fiel('A Luz de R$ 215,37 venceu em 28/10.', p), true); assert.strictEqual(C.fiel('Você tem reunião às 15:00.', p), false); });
 

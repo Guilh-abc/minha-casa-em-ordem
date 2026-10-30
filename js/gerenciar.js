@@ -24,6 +24,26 @@
     return h('label', { class: 'campo' }, h('span', null, f.rotulo), el);
   }
 
+  /* campos de edição de conta (usados em Gerenciar e no detalhe da conta em Família) */
+  var MESES_OP = U.MESES.map(function (n, k) { return [String(k + 1), n]; });
+  function camposConta(m0) {
+    return [{ k: 'titulo', rotulo: 'Conta', max: 80 },
+            { k: 'mensal', rotulo: 'Repete todo mês', tipo: 'check', redesenha: true, set: function (i, v) { i.mensal = !!v; if (v) { i.anual = false; i.mes = 0; } } },
+            { k: 'anual', rotulo: 'Repete todo ano', tipo: 'check', redesenha: true, mostrar: function (i) { return !i.mensal; }, set: function (i, v) { i.anual = !!v; if (v) { i.mensal = false; i.mes = i.mes || (+U.ym(U.hoje()).slice(5)); } else i.mes = 0; } },
+            { k: 'mes', rotulo: 'Mês do vencimento', tipo: 'select', opcoes: function () { return MESES_OP; }, mostrar: function (i) { return i.anual; }, set: function (i, v) { i.mes = Math.min(12, Math.max(1, Math.round(Number(v)) || 1)); } },
+            { k: 'dia', rotulo: 'Dia do vencimento', tipo: 'number', min: 1, maxn: 31, mostrar: function (i) { return i.mensal || i.anual; }, set: function (i, v) { i.dia = Math.min(31, Math.max(1, Math.round(Number(v)) || 1)); } },
+            { k: 'data', rotulo: 'Vence em', tipo: 'date', mostrar: function (i) { return !i.mensal && !i.anual; } },
+            { k: 'icone', rotulo: 'Ícone', tipo: 'select', opcoes: function () { return PS.iconesFamilia; } },
+            { k: 'valor', rotulo: 'Valor (R$) opcional', tipo: 'number', passo: '0.01', min: 0, dica: '0,00', set: function (i, v) { i.valor = v === '' ? null : Math.max(0, Number(v)); } },
+            { k: 'forma', rotulo: 'Forma de pagamento', tipo: 'select', opcoes: function () { return PS.fin.FORMAS; } },
+            { k: 'obs', rotulo: 'Banco / observação (sem números de conta)', max: 60, dica: 'Ex.: pagar pelo app do banco' },
+            { k: 'cartaoRef', rotulo: 'Fatura de cartão vinculada (nome do cartão, opcional)', max: 30, dica: 'Ex.: o apelido do cartão em Cartões' },
+            { k: 'cat', rotulo: 'Categoria (histórico)', tipo: 'select', opcoes: function () { return S.CATS.map(function (c) { return [c, PS.nomeCat ? PS.nomeCat(c) : c]; }); } },
+            { k: 'dono', rotulo: 'De quem', tipo: 'select', opcoes: function () { return [['', 'Casal / sem dono'], ['gui', 'Gui'], ['esposa', S.get().config.esposa], ['casal', 'Casal']]; } },
+            { k: 'arquivada', rotulo: 'Arquivada (pausar, não cobrar)', tipo: 'check' },
+            { k: 'paga', rotulo: 'Paga (este mês) — manual', tipo: 'check', mostrar: function (i) { return !i.anual && !i.arquivada; }, get: function (i) { return i.mensal ? !!(i.pagas && i.pagas[m0]) : !!i.paga; }, set: function (i, v) { if (v) PS.fin.marcarPaga({ contas: [i] }, 'conta', i.id, i.mensal ? m0 : 'avulsa', U.hoje()); else PS.fin.desfazerPaga({ contas: [i] }, 'conta', i.id, i.mensal ? m0 : 'avulsa'); } }];
+  }
+
   /* editor genérico de coleção de objetos */
   function editor(o) {
     var box = h('div');
@@ -177,7 +197,6 @@
             { k: 'feito', rotulo: 'Feito', tipo: 'check', mostrar: function (i) { return !i.dia; } },
             { k: 'obs', rotulo: 'Observação', max: 160 }] })));
       var m0 = U.ym(U.hoje()), blocoContas = h('div', { class: 'bloco' });
-      var MESES_OP = U.MESES.map(function (n, k) { return [String(k + 1), n]; });
       function desenharContas() {
         U.limpar(blocoContas);
         var faltam = PS.fin.fixasFaltando(S.get()).length;
@@ -186,21 +205,7 @@
         blocoContas.appendChild(h('div', { class: 'acoes', style: 'margin-top:0;margin-bottom:.6rem' }, h('button', { class: 'btn', type: 'button', 'data-fid': 'fx:add-ger', disabled: faltam ? null : 'disabled', onclick: function () { PS.finUI.adicionarFixas(); desenharContas(); } }, I('carteira'), 'Adicionar contas fixas sugeridas' + (faltam ? '' : ' (já adicionadas)'))));
         blocoContas.appendChild(editor({ colecao: 'contas', rotuloAdd: 'Nova conta', ordenar: function (l) { var hj = U.hoje(); return l.slice().sort(function (a, b) { return (a.arquivada ? 1 : 0) - (b.arquivada ? 1 : 0) || (PS.fin.proximoVencimento(a, hj) < PS.fin.proximoVencimento(b, hj) ? -1 : 1); }); },
           novo: function () { return { id: U.uid(), titulo: '', mensal: true, anual: false, mes: 0, dia: 10, data: '', valor: null, paga: false, pagas: {}, valores: {}, desde: U.ym(U.hoje()), cat: 'casa', dono: '', forma: '', obs: '', cartaoRef: '', arquivada: false }; },
-          campos: [{ k: 'titulo', rotulo: 'Conta', max: 80 },
-            { k: 'mensal', rotulo: 'Repete todo mês', tipo: 'check', redesenha: true, set: function (i, v) { i.mensal = !!v; if (v) { i.anual = false; i.mes = 0; } } },
-            { k: 'anual', rotulo: 'Repete todo ano', tipo: 'check', redesenha: true, mostrar: function (i) { return !i.mensal; }, set: function (i, v) { i.anual = !!v; if (v) { i.mensal = false; i.mes = i.mes || (+U.ym(U.hoje()).slice(5)); } else i.mes = 0; } },
-            { k: 'mes', rotulo: 'Mês do vencimento', tipo: 'select', opcoes: function () { return MESES_OP; }, mostrar: function (i) { return i.anual; }, set: function (i, v) { i.mes = Math.min(12, Math.max(1, Math.round(Number(v)) || 1)); } },
-            { k: 'dia', rotulo: 'Dia do vencimento', tipo: 'number', min: 1, maxn: 31, mostrar: function (i) { return i.mensal || i.anual; }, set: function (i, v) { i.dia = Math.min(31, Math.max(1, Math.round(Number(v)) || 1)); } },
-            { k: 'data', rotulo: 'Vence em', tipo: 'date', mostrar: function (i) { return !i.mensal && !i.anual; } },
-            { k: 'icone', rotulo: 'Ícone', tipo: 'select', opcoes: function () { return PS.iconesFamilia; } },
-            { k: 'valor', rotulo: 'Valor (R$) opcional', tipo: 'number', passo: '0.01', min: 0, dica: '0,00', set: function (i, v) { i.valor = v === '' ? null : Math.max(0, Number(v)); } },
-            { k: 'forma', rotulo: 'Forma de pagamento', tipo: 'select', opcoes: function () { return PS.fin.FORMAS; } },
-            { k: 'obs', rotulo: 'Banco / observação (sem números de conta)', max: 60, dica: 'Ex.: pagar pelo app do banco' },
-            { k: 'cartaoRef', rotulo: 'Fatura de cartão vinculada (nome do cartão, opcional)', max: 30, dica: 'Ex.: o apelido do cartão em Cartões' },
-            { k: 'cat', rotulo: 'Categoria (histórico)', tipo: 'select', opcoes: function () { return S.CATS.map(function (c) { return [c, PS.nomeCat ? PS.nomeCat(c) : c]; }); } },
-            { k: 'dono', rotulo: 'De quem', tipo: 'select', opcoes: function () { return [['', 'Casal / sem dono'], ['gui', 'Gui'], ['esposa', S.get().config.esposa], ['casal', 'Casal']]; } },
-            { k: 'arquivada', rotulo: 'Arquivada (pausar, não cobrar)', tipo: 'check' },
-            { k: 'paga', rotulo: 'Paga (este mês) — manual', tipo: 'check', mostrar: function (i) { return !i.anual && !i.arquivada; }, get: function (i) { return i.mensal ? !!(i.pagas && i.pagas[m0]) : !!i.paga; }, set: function (i, v) { if (v) PS.fin.marcarPaga({ contas: [i] }, 'conta', i.id, i.mensal ? m0 : 'avulsa', U.hoje()); else PS.fin.desfazerPaga({ contas: [i] }, 'conta', i.id, i.mensal ? m0 : 'avulsa'); } }] }));
+          campos: camposConta(m0) }));
       }
       desenharContas();
       w.appendChild(blocoContas);
@@ -269,6 +274,7 @@
     }
   };
 
+  PS.gerenciar = { campoEl: campoEl, camposConta: camposConta };
   PS.views.gerenciar = { reativo: false, titulo: 'Gerenciar', render: function (param) {
     var aba = secoes[param] ? param : 'geral';
     var tabs = ABAS.map(function (a) { return h('a', { class: 'aba', href: '#/gerenciar/' + a[0], role: 'tab', 'aria-selected': a[0] === aba ? 'true' : 'false', 'data-fid': 'ga:' + a[0] }, a[1]); });
