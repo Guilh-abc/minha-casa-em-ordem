@@ -158,7 +158,7 @@
       U.limpar(lista);
       if (!conversa.length) lista.appendChild(h('li', { class: 'vazio' }, 'Nenhuma pergunta ainda. O ajudante lê um resumo dos dados deste aparelho e só grava algo se você confirmar.'));
       conversa.forEach(function (m, i) { lista.appendChild(balao(m, i, desenhar)); });
-      btn.disabled = enviando; arquivo.disabled = enviando; if (!enviando) status.textContent = ''; else if (!status.textContent) status.textContent = 'Pensando…';
+      btn.disabled = enviando; arquivo.disabled = galeria.disabled = enviando; if (!enviando) status.textContent = ''; else if (!status.textContent) status.textContent = 'Pensando…';
       lista.scrollTop = lista.scrollHeight;
     }
     function dadosConsulta() {
@@ -193,9 +193,11 @@
         .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
         .then(function () { enviando = false; desenhar(); campo.focus(); });
     }
-    var arquivo = h('input', { type: 'file', accept: 'image/*', capture: 'environment', class: 'ass-arquivo', id: 'ass-foto', 'data-fid': 'ass-foto', 'aria-label': 'Foto ou print de boleto, comprovante, convite, lista ou cupom' });
-    arquivo.addEventListener('change', function () {
-      var f = arquivo.files && arquivo.files[0]; arquivo.value = '';
+    /* câmera (capture) e galeria/prints (sem capture: no celular, capture abre só a câmera) */
+    var arquivo = h('input', { type: 'file', accept: 'image/*', capture: 'environment', class: 'ass-arquivo', id: 'ass-foto', 'data-fid': 'ass-foto', 'aria-label': 'Tirar foto de boleto, comprovante, convite, lista ou cupom' });
+    var galeria = h('input', { type: 'file', accept: 'image/*', class: 'ass-arquivo', id: 'ass-print', 'data-fid': 'ass-print', 'aria-label': 'Escolher print ou imagem da galeria' });
+    function lerArquivo(inp) {
+      var f = inp.files && inp.files[0]; inp.value = '';
       if (!f || enviando) return;
       enviando = true; status.textContent = 'Reduzindo a imagem…';
       conversa.push({ papel: 'user', texto: 'Foto/print enviado para leitura (a imagem não é guardada).' }); desenhar(); status.textContent = 'Lendo a imagem…';
@@ -206,17 +208,21 @@
           .then(function (j) {
             url = '';
             if (!j || !j.leitura) { conversa.push({ papel: 'assistant', texto: 'Não consegui ler: ' + ((j && j.erro) || 'erro desconhecido') }); return; }
-            var abertas = []; try { abertas = PS.fin.listas(S.get(), U.hoje()).abertas; } catch (e) { abertas = []; }
+            var abertas = [], st = S.get(), ex = {}; (st.contas || []).forEach(function (c) { if (c.exemplo) ex[c.id] = 1; });
+            try { abertas = PS.fin.listas(st, U.hoje()).abertas.filter(function (x) { return !ex[x.id]; }); } catch (e) { abertas = []; }
             var sugs = PS.leitura.normalizar(j.leitura, U.hoje(), abertas);
             conversa.push({ papel: 'assistant', texto: sugs.length ? 'Li a imagem. Confira e confirme o que deve ir para o app:' : 'Não reconheci esse documento. Tente boleto, comprovante, convite, acordo, lista ou cupom fiscal.', leituras: sugs });
           })
           .catch(function () { conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
           .then(function () { enviando = false; desenhar(); });
       });
-    });
-    var btnFoto = h('label', { class: 'btn ass-btn-foto', for: 'ass-foto', 'data-fid': 'ass-btn-foto' }, I('camera'), h('span', null, 'Ler foto ou print'));
+    }
+    arquivo.addEventListener('change', function () { lerArquivo(arquivo); });
+    galeria.addEventListener('change', function () { lerArquivo(galeria); });
+    var btnFoto = h('label', { class: 'btn ass-btn-foto', for: 'ass-foto', 'data-fid': 'ass-btn-foto' }, I('camera'), h('span', null, 'Tirar foto'));
+    var btnPrint = h('label', { class: 'btn ass-btn-foto', for: 'ass-print', 'data-fid': 'ass-btn-print' }, I('enviar'), h('span', null, 'Ler print ou imagem'));
     var form = h('form', { class: 'ass-form', onsubmit: function (e) { e.preventDefault(); enviar(campo.value); } },
-      h('label', { class: 'campo' }, h('span', null, 'Sua pergunta'), campo), h('div', { class: 'acoes' }, btn, arquivo, btnFoto,
+      h('label', { class: 'campo' }, h('span', null, 'Sua pergunta'), campo), h('div', { class: 'acoes' }, btn, arquivo, btnFoto, galeria, btnPrint,
         h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-limpar', onclick: function () { conversa = []; desenhar(); } }, 'Limpar conversa')));
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(campo.value); } });
     var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Perguntas rápidas' },
