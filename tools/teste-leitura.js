@@ -64,8 +64,23 @@ t('cupom -> gasto pago com categoria válida', function () {
   var s = L.normalizar({ tipo: 'cupom', estabelecimento: 'Supermercado Dia', total: '87,40', data: '29/10/2026', categoria: 'mercado' }, HOJE);
   assert.strictEqual(s[0].acao, 'gasto'); assert.strictEqual(s[0].dados.valor, 87.4); assert.strictEqual(s[0].dados.cat, 'mercado'); assert.strictEqual(s[0].dados.paga, true);
 });
-t('cupom com categoria desconhecida vira outros', function () { assert.strictEqual(L.normalizar({ tipo: 'cupom', estabelecimento: 'Y', total: '5', categoria: 'xyz' }, HOJE)[0].dados.cat, 'outros'); });
+t('cupom com categoria desconhecida vira outros', function () { assert.strictEqual(L.normalizar({ tipo: 'cupom', estabelecimento: 'Y', total: '5', data: '29/10/2026', categoria: 'xyz' }, HOJE)[0].dados.cat, 'outros'); });
 t('tipo desconhecido não gera sugestão', function () { assert.deepStrictEqual(L.normalizar({ tipo: 'foto_de_gato' }, HOJE), []); });
+
+/* anti-invenção: só campos que vieram da imagem */
+function nada(o) { var r = L.normalizar(o, HOJE, ABERTAS0); return r.length === 1 && r[0].acao === 'nada' && r[0].avisos.length > 0; }
+var ABERTAS0 = [{ tipo: 'conta', id: 'a', chave: '2026-11', titulo: 'Luz (Enel)', data: '2026-11-04', valor: 1 }];
+t('boleto sem vencimento legível não vira conta (não inventa data)', function () { assert.ok(nada({ tipo: 'boleto', beneficiario: 'Enel', valor: '10,00', vencimento: '' })); });
+t('boleto sem beneficiário não inventa título', function () { assert.ok(nada({ tipo: 'boleto', beneficiario: '', valor: '10,00', vencimento: '10/11/2026' })); });
+t('boleto: linha com DV falho nunca é gravada', function () { var r = L.normalizar({ tipo: 'boleto', beneficiario: 'Enel', valor: '215,37', vencimento: '10/11/2026', linha_digitavel: '34191.79001 10104.351001 47910.201509 2 162600000215' }, HOJE); assert.strictEqual(r[0].dados.linha, ''); });
+t('comprovante sem data de pagamento não marca', function () { assert.ok(nada({ tipo: 'comprovante', beneficiario: 'Enel', valor: '1,00', data_pagamento: '' })); });
+t('acordo sem credor não inventa', function () { assert.ok(nada({ tipo: 'acordo', beneficiario: '', parcelas: 2, valor_parcela: '1,00', primeiro_vencimento: '04/11/2026' })); });
+t('compromisso sem título não inventa', function () { assert.ok(nada({ tipo: 'compromisso', titulo: '', data: '15/11/2026' })); });
+t('cupom sem total ou sem data não vira gasto', function () { assert.ok(nada({ tipo: 'cupom', estabelecimento: 'X', total: '', data: '29/10/2026' })); assert.ok(nada({ tipo: 'cupom', estabelecimento: 'X', total: '5,00', data: '' })); });
+
+t('acordo aceita "credor" lido da imagem como nome', function () { var r = L.normalizar({ tipo: 'acordo', credor: 'Sabesp', parcelas: 2, valor_parcela: '1,00', primeiro_vencimento: '04/11/2026' }, HOJE); assert.strictEqual(r[0].dados.titulo, 'Sabesp (parcela 1/2)'); });
+
+t('placeholder do modelo copiado literalmente ("(credor)") não vira nome', function () { assert.ok(nada({ tipo: 'acordo', beneficiario: '(credor)', parcelas: 2, valor_parcela: '1,00', primeiro_vencimento: '04/11/2026' })); });
 
 /* comprovante: casar com conta em aberto */
 var ABERTAS = [

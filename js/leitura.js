@@ -18,7 +18,8 @@
     var ult = new Date(Date.UTC(y, m, 0)).getUTCDate();
     return iso(y, m, Math.min(d, ult));
   }
-  function txt(v, n) { return v == null ? '' : String(v).replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n || 120); }
+  function txt(v, n) { if (v != null && /^\s*[(<\[].*[)>\]]\s*$/.test(String(v))) return '';   /* placeholder copiado do modelo */
+    return v == null ? '' : String(v).replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n || 120); }
 
   function valorBR(v) {
     if (typeof v === 'number') return isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : null;
@@ -83,8 +84,12 @@
   }
   function brl(v) { return v == null ? 'sem valor' : 'R$ ' + v.toFixed(2).replace('.', ','); }
 
+  /* campo obrigatório ilegível: não inventa, só avisa */
+  function falta(doc, campo, av) { return { acao: 'nada', dados: {}, resumo: doc + ': não consegui ler ' + campo + '.', avisos: (av || []).concat(['Nada será gravado. Tire outra foto mais nítida ou cadastre à mão.']) }; }
   function normalizar(o, hoje, abertas) {
-    o = o || {}; var tipo = txt(o.tipo, 20).toLowerCase(), out = [];
+    o = o || {};
+    if (!o.beneficiario) o.beneficiario = o.credor || o.favorecido || o.empresa || '';   /* sinônimos que o modelo usa, sempre vindos da imagem */
+    var tipo = txt(o.tipo, 20).toLowerCase(), out = [];
     if (tipo === 'boleto' || tipo === 'fatura') {
       var av = [], valor = valorBR(o.valor), venc = dataBR(o.vencimento), ld = o.linha_digitavel ? linhaDigitavel(o.linha_digitavel) : null;
       if (ld && ld.ok) {
@@ -92,28 +97,33 @@
         if (ld.vencimento && venc !== ld.vencimento) { if (venc) av.push('Vencimento lido diferente do da linha digitável; usei o da linha.'); venc = ld.vencimento; }
         av.push('Linha digitável conferida (dígitos verificadores ok).');
       } else if (o.linha_digitavel) av.push('A linha digitável lida não confere (dígito verificador). Confira no papel.');
-      if (!venc) av.push('Sem vencimento: confira a data.');
-      var tit = txt(o.beneficiario, 80) || 'Boleto';
+      var tit = txt(o.beneficiario, 80);
+      if (!venc || !tit) return [falta('Boleto', !tit ? 'o beneficiário' : 'o vencimento', av)];
       out.push({ acao: 'conta', dados: { titulo: tit, valor: valor, data: venc || hoje, linha: ld && ld.ok ? ld.digitos : '' }, resumo: 'Nova conta: ' + tit + ', ' + brl(valor) + ', vence ' + (venc || hoje), avisos: av });
     } else if (tipo === 'comprovante') {
-      var cv = { valor: valorBR(o.valor), beneficiario: o.beneficiario, data: dataBR(o.data_pagamento) || hoje }, m = casarComprovante(abertas, cv);
+      var cv = { valor: valorBR(o.valor), beneficiario: o.beneficiario, data: dataBR(o.data_pagamento) };
+      if (!cv.data || cv.valor == null) return [falta('Comprovante', !cv.data ? 'a data do pagamento' : 'o valor', [])];
+      var m = casarComprovante(abertas, cv);
       if (m) out.push({ acao: 'pagar', dados: { tipo: m.tipo, id: m.id, chave: m.chave, pagaEm: cv.data }, resumo: 'Marcar como paga: ' + m.titulo + ' (' + brl(m.valor) + ', vence ' + m.data + '), paga em ' + cv.data, avisos: [] });
       else out.push({ acao: 'nada', dados: {}, resumo: 'Comprovante de ' + brl(cv.valor) + (o.beneficiario ? ' para ' + txt(o.beneficiario, 60) : ''), avisos: ['Não encontrei conta em aberto com esse valor. Nada será marcado.'] });
     } else if (tipo === 'acordo' || tipo === 'parcelamento') {
       var n = Math.min(60, Math.max(1, Math.round(Number(o.parcelas) || 0))), at = Math.max(1, Math.round(Number(o.parcela_atual) || 1)), vp = valorBR(o.valor_parcela), d0 = dataBR(o.primeiro_vencimento) || dataBR(o.vencimento);
-      var nome = txt(o.beneficiario, 60) || 'Acordo';
+      var nome = txt(o.beneficiario, 60);
+      if (!nome) return [falta('Acordo', 'o credor', [])];
       if (!d0 || !n) return [{ acao: 'nada', dados: {}, resumo: 'Acordo de ' + nome, avisos: ['Não consegui ler parcelas e vencimento.'] }];
       for (var k = at; k <= n; k++) { var dk = somaMes(d0, k - at); out.push({ acao: 'conta', dados: { titulo: nome + ' (parcela ' + k + '/' + n + ')', valor: vp, data: dk }, resumo: nome + ' parcela ' + k + '/' + n + ': ' + brl(vp) + ', vence ' + dk, avisos: [] }); }
     } else if (tipo === 'compromisso' || tipo === 'convite' || tipo === 'aviso' || tipo === 'receita' || tipo === 'conversa') {
-      var ti = txt(o.titulo, 120) || 'Compromisso', dc = dataBR(o.data);
+      var ti = txt(o.titulo, 120), dc = dataBR(o.data);
+      if (!ti) return [falta('Compromisso', 'o título', [])];
       if (dc) out.push({ acao: 'compromisso', dados: { titulo: ti, data: dc, hora: hora(o.hora), local: txt(o.local, 80) }, resumo: 'Agenda: ' + ti + ', ' + dc + (hora(o.hora) ? ' às ' + hora(o.hora) : '') + (o.local ? ' (' + txt(o.local, 80) + ')' : ''), avisos: [] });
       else out.push({ acao: 'lembrete', dados: { titulo: ti.slice(0, 100), dia: 0, obs: txt(o.obs, 160) }, resumo: 'Lembrete (sem data): ' + ti, avisos: [] });
     } else if (tipo === 'lista') {
       var vistos = [];
       (Array.isArray(o.itens) ? o.itens : []).slice(0, 40).forEach(function (it) { var s = txt(it, 120), k = s.toLowerCase(); if (!s || vistos.indexOf(k) >= 0) return; vistos.push(k); s = s.charAt(0).toUpperCase() + s.slice(1); out.push({ acao: 'tarefa', dados: { titulo: s }, resumo: 'Tarefa: ' + s, avisos: [] }); });
     } else if (tipo === 'cupom') {
-      var cat = CATS.indexOf(txt(o.categoria, 20).toLowerCase()) >= 0 ? txt(o.categoria, 20).toLowerCase() : 'outros', tv = valorBR(o.total), dd = dataBR(o.data) || hoje, est = txt(o.estabelecimento, 80) || 'Compra';
-      out.push({ acao: 'gasto', dados: { titulo: est, valor: tv, data: dd, cat: cat, paga: true }, resumo: 'Gasto pago: ' + est + ', ' + brl(tv) + ' em ' + dd + ' (' + cat + ')', avisos: tv == null ? ['Sem total legível.'] : [] });
+      var cat = CATS.indexOf(txt(o.categoria, 20).toLowerCase()) >= 0 ? txt(o.categoria, 20).toLowerCase() : 'outros', tv = valorBR(o.total), dd = dataBR(o.data), est = txt(o.estabelecimento, 80);
+      if (tv == null || !dd || !est) return [falta('Cupom fiscal', tv == null ? 'o total' : !dd ? 'a data' : 'o estabelecimento', [])];
+      out.push({ acao: 'gasto', dados: { titulo: est, valor: tv, data: dd, cat: cat, paga: true }, resumo: 'Gasto pago: ' + est + ', ' + brl(tv) + ' em ' + dd + ' (' + cat + ')', avisos: [] });
     }
     return out;
   }

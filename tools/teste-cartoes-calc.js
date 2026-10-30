@@ -18,4 +18,6 @@ check(e[2].vs.pct === 29.7, 'variação % = 29,7');
 var csv = C.csv(s, [{ fatura: 'f1', data: '2026-09-03', desc: '=HYPERLINK("x")', valor: 55.9, cat: 'x', pa: 1, pt: 3 }]);
 check(csv.charAt(0) === '\ufeff' && csv.indexOf("\"'=HYPERLINK") > 0 && csv.indexOf('55,9') > 0 && csv.indexOf('1/3') > 0, 'CSV: BOM, vírgula decimal, parcela, proteção contra fórmula');
 check(C.filtrar(s.lancs, { q: 'mercado' }).length === 3 && C.filtrar(s.lancs, { cat: 'compras' }).length === 4, 'busca e filtro por categoria');
+var av = C.avulsos({ lancs: [{ fatura: 'avulso', data: '2026-10-29', desc: 'Mercado Z', valor: 87.4, cat: 'mercado' }, { fatura: 'avulso', data: '2026-10-02', desc: 'Farmácia', valor: 20, cat: 'saude' }, { fatura: 'avulso', data: '2026-09-10', desc: 'Pão', valor: 10, cat: 'mercado' }, { fatura: 'f1', data: '2026-10-05', desc: 'Cartão', valor: 300, cat: 'mercado' }] });
+check(av.length === 2 && av[0].mes === '2026-10' && av[0].total === 107.4 && av[0].itens[0].desc === 'Mercado Z' && av[0].porCat[0].cat === 'mercado' && av[1].total === 10, 'gastos avulsos (cupom): por mês, mais recente primeiro, sem lançamentos de cartão');
 console.log('\n' + ok + ' ok, ' + f + ' falhas'); process.exit(f ? 1 : 0);

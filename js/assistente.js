@@ -100,6 +100,7 @@
   /* reduz a foto no aparelho: lado maior até 1280 px, JPEG 0,8 (cai para 0,6 se ainda ficar grande) */
   function reduzir(arquivo, cb) {
     if (!arquivo || !/^image\//.test(arquivo.type || '')) { cb('Escolha uma imagem.'); return; }
+    var feito = false, cb0 = cb; cb = function (e, u, w, hh) { if (feito) return; feito = true; cb0(e, u, w, hh); };   /* uma única resposta */
     var leitor = new FileReader();
     leitor.onerror = function () { cb('Não consegui abrir a imagem.'); };
     leitor.onload = function () {
@@ -110,7 +111,7 @@
         var cv = document.createElement('canvas'); cv.width = w; cv.height = hh;
         var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, hh); cx.drawImage(img, 0, 0, w, hh);
         var url = cv.toDataURL('image/jpeg', 0.8); if (url.length > MAX_DATAURL) url = cv.toDataURL('image/jpeg', 0.6);
-        cv.width = cv.height = 0; img.src = '';
+        cv.width = cv.height = 0; img.onload = img.onerror = null; img.removeAttribute('src');
         if (url.length > MAX_DATAURL) { cb('Imagem grande demais mesmo reduzida.'); return; }
         cb('', url, w, hh);
       };
@@ -215,7 +216,7 @@
     });
     var btnFoto = h('label', { class: 'btn ass-btn-foto', for: 'ass-foto', 'data-fid': 'ass-btn-foto' }, I('camera'), h('span', null, 'Ler foto ou print'));
     var form = h('form', { class: 'ass-form', onsubmit: function (e) { e.preventDefault(); enviar(campo.value); } },
-      h('label', { class: 'campo' }, h('span', null, 'Sua pergunta'), campo), h('div', { class: 'acoes' }, btn, btnFoto, arquivo,
+      h('label', { class: 'campo' }, h('span', null, 'Sua pergunta'), campo), h('div', { class: 'acoes' }, btn, arquivo, btnFoto,
         h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-limpar', onclick: function () { conversa = []; desenhar(); } }, 'Limpar conversa')));
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(campo.value); } });
     var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Perguntas rápidas' },

@@ -424,3 +424,13 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .topo .menu { order: 3; }
 .ass-intro { margin: .2rem 0 .5rem; font-size: .78rem; line-height: 1.45; color: var(--c-texto-2); }
 @media (max-width: 640px) { .btn-ajudante { font-size: .9rem; } .ass-intro { font-size: .92rem; } }
+/* Ajudante: leitura de foto/print (câmera) */
+.ass-arquivo { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip: rect(0 0 0 0); }
+.ass-btn-foto { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; }
+.ass-btn-foto svg { width: 1.1em; height: 1.1em; }
+.ass-arquivo:focus-visible + .ass-btn-foto, .ass-btn-foto:focus-within { outline: 3px solid var(--c-magenta-claro); outline-offset: 2px; }
+.ass-arquivo:disabled + .ass-btn-foto { opacity: .5; pointer-events: none; }
+.ass-avisos { margin: 0 0 .4rem 1.2rem; padding: 0; font-size: .68rem; color: var(--c-aviso); }
+.gastos-avulsos .ga-mes + .ga-mes { margin-top: .6rem; }
+.gastos-avulsos h3 { margin: .2rem 0; font-size: .85rem; }
+@media (max-width: 640px) { .ass-btn-foto { flex: 1 1 100%; justify-content: center; } .ass-avisos { font-size: .85rem; } }

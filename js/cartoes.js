@@ -304,6 +304,21 @@
       h('p', { class: 'nota' }, 'Guarde só o apelido e os 4 últimos dígitos. O painel recusa números completos e CVV.'));
   }
 
+  /* Gastos avulsos: cupons fiscais lidos pela câmera do Ajudante (sem cartão). Só aparece quando existe algum. */
+  function cardAvulsos(s) {
+    var ms = C.avulsos(s); if (!ms.length) return null;
+    return h('section', { class: 'cartao gastos-avulsos', id: 'gastos-avulsos' }, h('h2', null, I('grafico'), h('span', null, 'Gastos avulsos')),
+      ms.slice(0, 6).map(function (m) {
+        return h('div', { class: 'ga-mes' }, h('h3', null, mesRot(m.mes) + ': ' + brl(m.total)),
+          h('p', { class: 'nota' }, m.porCat.map(function (c) { return (PS.CATS_ROT && PS.CATS_ROT[c.cat] || c.cat) + ' ' + brl(c.total); }).join(' · ')),
+          h('ul', { class: 'lista-simples' }, m.itens.map(function (l) {
+            return h('li', null, h('span', { class: 'ls-t' }, l.desc, h('small', null, dataBR(l.data) + ' · ' + l.cat)), h('strong', null, brl(l.valor)),
+              h('button', { class: 'btn peq', type: 'button', 'data-fid': 'ga:del' + l.id, 'aria-label': 'Excluir gasto ' + l.desc, onclick: function () { if (g.confirm('Excluir o gasto "' + l.desc + '" de ' + brl(l.valor) + '?')) S.alterar(function (x) { x.lancs = x.lancs.filter(function (y) { return y.id !== l.id; }); }); } }, 'Excluir'));
+          })));
+      }),
+      h('p', { class: 'nota' }, 'Lançados a partir de cupom fiscal pelo Ajudante (foto não é guardada). Não entram nas faturas dos cartões.'));
+  }
+
   PS.views.cartoes = { reativo: true, titulo: 'Cartões', render: function () {
     if (rev) return telaRevisao();
     var s = S.get(), hoje = U.hoje(), fs = faturasValidas(s);
@@ -314,7 +329,7 @@
       h('button', { class: 'btn', type: 'button', 'data-fid': 'ct:exemplo', onclick: usarExemplo }, I('grafico'), 'Testar com fatura de exemplo'), arq);
     if (!fs.length) return h('div', { class: 'cartoes' }, h('h1', { class: 'titulo-tela' }, I('cartao'), 'Cartões e faturas'), acoes,
       h('section', { class: 'cartao' }, h('h2', null, I('cartao'), h('span', null, 'Comece por aqui')), h('p', { class: 'vazio' }, 'Nenhuma fatura ainda. Envie o PDF da fatura (lido só neste aparelho) ou cadastre à mão. O painel mostra categorias, maiores compras, assinaturas, parcelas e a evolução mês a mês.'),
-        h('p', { class: 'nota' }, 'Para usar PDF: baixe a fatura em PDF no app/site do banco e toque em "Enviar fatura (PDF)". Se pedir senha, o painel pergunta na hora e não guarda.')), cardCartoes(s));
+        h('p', { class: 'nota' }, 'Para usar PDF: baixe a fatura em PDF no app/site do banco e toque em "Enviar fatura (PDF)". Se pedir senha, o painel pergunta na hora e não guarda.')), cardAvulsos(s), cardCartoes(s));
     var f = fs.filter(function (x) { return x.id === sel; })[0] || fs[0]; sel = f.id;
     var ls = C.lancsDe(s, f.id);
     var chips = h('div', { class: 'chips-fat', role: 'tablist', 'aria-label': 'Faturas' }, fs.slice(0, 12).map(function (x) { return h('button', { class: 'chip-fat' + (x.id === f.id ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': x.id === f.id ? 'true' : 'false', 'data-fid': 'fx:' + x.id, onclick: function () { sel = x.id; filtro = { q: '', cat: '', dono: '' }; PS.redesenhar(); } }, h('strong', null, nomeCartao(s, x)), h('small', null, mesRot(x.mes) + ' · ' + brl(C.faturaTotal(s, x)))); }));
@@ -323,7 +338,7 @@
     return h('div', { class: 'cartoes' }, h('h1', { class: 'titulo-tela' }, I('cartao'), 'Cartões e faturas'), acoes, chips, cabecalho(s, f, ls, hoje),
       h('div', { class: 'grade-cartoes' }, cardCategorias(ls), cardTop(ls), cardAssinaturas(s), cardParcelas(s, hoje), cardFuturos(f), cardEvolucao(s, f)), cardLancs(s, f, ls),
       h('section', { class: 'cartao' }, h('h2', null, I('meta'), h('span', null, 'Meta mensal')), h('label', { class: 'campo' }, h('span', null, 'Quanto quer gastar por fatura (opcional)'), metaIn), h('p', { class: 'nota' }, 'Com meta, o anel compara a fatura com ela; sem meta, compara com o mês anterior.')),
-      cardCartoes(s),
+      cardAvulsos(s), cardCartoes(s),
       h('p', { class: 'nota' }, 'Leitura de PDF testada só com faturas sintéticas (inventadas). Confira sempre os valores com a fatura do banco.'));
   } };
 })(window);

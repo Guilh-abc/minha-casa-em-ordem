@@ -21,7 +21,7 @@ var LEITOR = 'Você lê fotos e prints de documentos domésticos brasileiros e d
   'Escolha "tipo" entre: boleto, comprovante, acordo, compromisso, lista, cupom, outro. Campos por tipo: ' +
   'boleto: {"tipo":"boleto","beneficiario":"","valor":"","vencimento":"","linha_digitavel":""} (linha_digitavel: copie TODOS os 47 ou 48 dígitos da linha, inclusive o último grupo longo); ' +
   'comprovante (de pagamento/Pix/transferência): {"tipo":"comprovante","beneficiario":"quem RECEBEU (favorecido), não o banco","valor":"","data_pagamento":""}; ' +
-  'acordo ou parcelamento: {"tipo":"acordo","beneficiario":"","parcelas":0,"parcela_atual":1,"valor_parcela":"","primeiro_vencimento":""}; ' +
+  'acordo ou parcelamento: {"tipo":"acordo","beneficiario":"(credor)","parcelas":0,"parcela_atual":1,"valor_parcela":"","primeiro_vencimento":""}; ' +
   'convite, receita médica, aviso de escola ou conversa com data: {"tipo":"compromisso","titulo":"","data":"","hora":"","local":"","obs":""}; ' +
   'lista ou anotação: {"tipo":"lista","itens":["",""]}; ' +
   'cupom fiscal ou nota de compra: {"tipo":"cupom","estabelecimento":"","total":"","data":"","categoria":"mercado|restaurante|transporte|saude|educacao|lazer|assinaturas|casa|compras|viagens|encargos|outros"}. ' +
