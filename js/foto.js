@@ -160,12 +160,15 @@
           h('span', { class: 'caixa' + (x.comprado ? ' on' : ''), 'aria-hidden': 'true' }, I('check')), h('span', { class: 't' }, x.nome, det ? h('small', null, det) : null, x.por ? h('span', { class: 'tag-por', 'data-fid': 'por:' + x.id }, 'por ' + x.por) : null)),
         h('button', { class: 'btn btn-icone', type: 'button', 'data-fid': 'cp-rm:' + x.id, 'aria-label': 'Remover ' + x.nome, onclick: function () { remover(x.id); } }, I('x')));
     });
+    var bts = botao(); bts[0].className = 'btn btn-foto';
+    var menu = h('div', { class: 'acoes ft-acoes nt-menu', 'data-fid': 'cp:menu', hidden: 'hidden' }, bts[0], bts[1],
+      h('button', { class: 'btn', type: 'button', 'data-fid': 'cp:manual', onclick: function () { revisar(F.normalizar({ destino: 'compras' }, U.hoje())); } }, I('mais'), 'Digitar'));
     var feitos = itens.some(function (x) { return x.comprado; });
     return h('div', null, h('h1', { class: 'titulo-tela' }, 'Lista de compras', h('small', null, itens.length ? itens.length + (itens.length === 1 ? ' item' : ' itens') : '')),
       h('section', { class: 'cartao' },
-        h('div', { class: 'acoes ft-acoes' }, botao(), h('button', { class: 'btn', type: 'button', 'data-fid': 'cp:manual', onclick: function () { revisar(F.normalizar({ destino: 'compras' }, U.hoje())); } }, I('mais'), 'Adicionar à mão')),
-        h('p', { class: 'dica' }, 'A foto só é usada para ler os dados e é descartada em seguida.'),
-        li.length ? h('ul', { class: 'lista-compras', 'data-fid': 'cp:lista' }, li) : h('p', { class: 'vazio' }, 'Lista vazia. Fotografe uma etiqueta ou adicione à mão.'),
+        h('div', { class: 'acoes ft-acoes' }, h('button', { class: 'btn primario', type: 'button', 'data-fid': 'cp:adicionar', 'aria-expanded': 'false', onclick: function () { var ab = menu.hasAttribute('hidden'); if (ab) menu.removeAttribute('hidden'); else menu.setAttribute('hidden', 'hidden'); this.setAttribute('aria-expanded', ab ? 'true' : 'false'); } }, I('mais'), 'Adicionar item')),
+        menu,
+        li.length ? h('ul', { class: 'lista-compras', 'data-fid': 'cp:lista' }, li) : h('p', { class: 'vazio' }, 'Lista vazia.'),
         total > 0 ? h('p', { class: 'cp-total', 'data-fid': 'cp:total' }, 'Total estimado: ' + F.brl(Math.round(total * 100) / 100)) : null,
         feitos ? h('div', { class: 'acoes' }, h('button', { class: 'btn', type: 'button', 'data-fid': 'cp:limpar', onclick: function () { S.alterar(function (st) { st.compras = st.compras.filter(function (y) { return !y.comprado; }); }); } }, 'Limpar comprados')) : null),
       PS.notas ? PS.notas.secao() : null);

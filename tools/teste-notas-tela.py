@@ -17,6 +17,14 @@ def png(cor):  # imagem mínima válida se não vier arquivo
 ETQ = pathlib.Path(a.etiqueta).read_bytes() if a.etiqueta else png(0)
 BOL = pathlib.Path(a.boleto).read_bytes() if a.boleto else png(0)
 NOTA = {'loja': 'ATACADÃO', 'data': '28/10', 'itens': [{'nome': 'Arroz 5kg', 'qtd': '2', 'unit': 'R$ 22,90', 'total': 'R$ 45,80'}, {'nome': 'Leite', 'qtd': '1', 'unit': '4,99', 'total': '4,99'}], 'desconto': 'R$ 1,00', 'total': 'R$ 52,00'}
+def abrir_menu(pg, fid):
+    el = pg.locator('[data-fid="%s"]' % fid).first
+    if el.count() and not el.is_visible():
+        op = 'nt:registrar' if fid.startswith('nt:') else 'cp:adicionar'
+        o = pg.locator('[data-fid="%s"]' % op)
+        if o.count(): o.first.click(); pg.wait_for_timeout(80)
+    return el
+
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=a.chrome) if a.chrome else p.chromium.launch()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(RELOGIO)
@@ -31,11 +39,16 @@ with sync_playwright() as p:
     pg.evaluate("PS.store.alterar(function(s){s.compras=[];s.notas=[];},true)"); pg.wait_for_timeout(200)
     L = lambda f: pg.locator('[data-fid="%s"]' % f)
     check(L('nt:secao').count() == 1 and 'compras feitas' in L('nt:secao').inner_text().lower(), 'área Compras feitas dentro da Lista de compras')
-    check(L('ft:camera').count() == 1, 'botões de foto da lista continuam')
+    check(L('cp:adicionar').is_visible() and not L('ft:camera').is_visible(), 'Adicionar item no topo, menu fechado')
+    check('A foto só' not in pg.inner_text('body'), 'sem a frase da foto')
+    L('cp:adicionar').click(); check(L('ft:camera').is_visible() and L('ft:galeria').is_visible() and L('cp:manual').inner_text().strip() == 'Digitar', 'menu: Tirar foto, galeria, Digitar')
+    check(L('ft:camera').bounding_box()['height'] >= 44 and L('cp:adicionar').bounding_box()['height'] >= 44, 'toque >=44px')
+    L('cp:adicionar').click()
     check('outubro de 2026' in L('nt:mes-rot').inner_text() and L('nt:vazio').count() == 1, 'mês atual vazio')
     check(not L('nt:foto-opcoes').is_visible(), 'opções de foto escondidas antes de Registrar nota')
     L('nt:registrar').click()
-    check(L('nt:camera').is_visible() and L('nt:galeria').is_visible(), 'Registrar nota mostra Tirar foto e Escolher da galeria')
+    check(L('nt:camera').is_visible() and L('nt:galeria').is_visible() and L('nt:planilha').is_visible() and L('nt:manual').is_visible(), 'Registrar nota abre Foto da nota, galeria, Importar planilha e Lançar à mão')
+    check(pg.locator('[data-fid="nt:secao"] > .ft-acoes:not(.nt-menu) button').count() == 1, 'um único botão Registrar nota')
     with pg.expect_file_chooser() as fc: L('nt:camera').click()
     check(fc.value.element.get_attribute('capture') == 'environment', 'Tirar foto abre a câmera traseira')
     fc.value.set_files({'name': 'n.png', 'mimeType': 'image/png', 'buffer': png(0)}); pg.wait_for_timeout(900)
@@ -57,8 +70,9 @@ with sync_playwright() as p:
     check(len(s) == 1 and s[0]['total'] == 49.79 and s[0]['loja'] == 'ATACADÃO' and len(s[0]['itens']) == 2 and s[0]['origem'] == 'foto', 'compra salva na coleção notas')
     check('imagem' not in json.dumps(s) and 'base64' not in pg.evaluate("JSON.stringify(localStorage)"), 'foto descartada (nada guardado)')
     check('49,79' in L('nt:total-mes').inner_text() and '1 compra' in L('nt:total-mes').inner_text(), 'total do mês e quantidade')
+    check(L('nt:lojas').count() == 0, 'uma loja: sem resumo por loja')
     # lançar à mão
-    L('nt:manual').click(); pg.wait_for_timeout(150)
+    abrir_menu(pg, 'nt:manual').click(); pg.wait_for_timeout(150)
     L('nt:loja').fill('Padaria Pão'); L('nt:i-nome:0').fill('Pão francês'); L('nt:i-total:0').fill('12,50'); L('nt:total').fill('12,50')
     L('nt:i-mais').click(); check(L('nt:i-nome:1').count() == 1, 'adicionar item')
     L('nt:i-rm:1').click(); check(L('nt:i-nome:1').count() == 0, 'remover item')

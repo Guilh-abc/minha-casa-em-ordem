@@ -18,6 +18,14 @@ ETQ = pathlib.Path(a.etiqueta).read_bytes() if a.etiqueta else png(0)
 BOL = pathlib.Path(a.boleto).read_bytes() if a.boleto else png(0)
 RESP = {'etiqueta': {'destino': 'compras', 'nome': 'Coxa e sobrecoxa', 'preco': 'R$ 9,39', 'unidade': 'kg', 'local': 'ATACADÃO'},
         'boleto': {'destino': 'agenda', 'titulo': 'Pagar boleto Enel', 'data': '12/11/2026', 'hora': '10:00', 'valor': 'R$ 187,45'}}
+def abrir_menu(pg, fid):
+    el = pg.locator('[data-fid="%s"]' % fid).first
+    if el.count() and not el.is_visible():
+        op = 'nt:registrar' if fid.startswith('nt:') else 'cp:adicionar'
+        o = pg.locator('[data-fid="%s"]' % op)
+        if o.count(): o.first.click(); pg.wait_for_timeout(80)
+    return el
+
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=a.chrome) if a.chrome else p.chromium.launch()
     w = 390
@@ -33,14 +41,14 @@ with sync_playwright() as p:
     pg.goto(base + '#/compras'); pg.wait_for_timeout(700)
     pg.evaluate("PS.store.alterar(function(s){s.compras=[];s.tarefas=[];s.compromissos=[];},true)")
     def fotografar(dados, nome, modo='camera'):
-        with pg.expect_file_chooser() as fc: pg.locator('[data-fid="ft:%s"]' % modo).first.click()
+        with pg.expect_file_chooser() as fc: abrir_menu(pg, 'ft:' + modo).click()
         ch = fc.value
         cap = ch.element.get_attribute('capture')
         if modo == 'camera': check(ch.element.get_attribute('accept') == 'image/*' and cap == 'environment', '[%s] Tirar foto abre a câmera traseira (capture=environment)' % nome)
         else: check(ch.element.get_attribute('accept') == 'image/*' and cap is None, '[%s] Escolher da galeria sem capture' % nome)
         ch.set_files(files=[{'name': nome + '.jpg', 'mimeType': 'image/jpeg', 'buffer': dados}])
         pg.wait_for_selector('[data-fid="ft:revisao"], .modal h2:text("Não consegui ler a imagem")', timeout=8000)
-    bc, bg = pg.locator('[data-fid="ft:camera"]').first, pg.locator('[data-fid="ft:galeria"]').first
+    abrir_menu(pg, 'ft:camera'); bc, bg = pg.locator('[data-fid="ft:camera"]').first, pg.locator('[data-fid="ft:galeria"]').first
     check(bc.inner_text().strip() == 'Tirar foto' and bg.inner_text().strip() == 'Escolher da galeria', 'dois botões: Tirar foto e Escolher da galeria')
     check(bc.bounding_box()['height'] >= 44 and bg.bounding_box()['height'] >= 44, 'os dois botões com 44px')
     check(pg.locator('[data-fid="ft:botao"]').count() == 0, 'botão antigo único não existe mais')

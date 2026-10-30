@@ -174,24 +174,24 @@
     var lista = S.get().notas || [];
     if (!mesSel) mesSel = U.hoje().slice(0, 7);
     var r = N.resumoMes(lista, mesSel);
-    var fotoBox = h('div', { class: 'acoes ft-acoes', 'data-fid': 'nt:foto-opcoes', hidden: 'hidden' },
-      h('button', { class: 'btn primario btn-foto', type: 'button', 'data-fid': 'nt:camera', onclick: function () { lerFoto(true); } }, I('camera'), 'Tirar foto'),
-      h('button', { class: 'btn btn-foto', type: 'button', 'data-fid': 'nt:galeria', onclick: function () { lerFoto(false); } }, I('baixar'), 'Escolher da galeria'));
+    var fotoBox = h('div', { class: 'acoes ft-acoes nt-menu', 'data-fid': 'nt:foto-opcoes', hidden: 'hidden' },
+      h('button', { class: 'btn btn-foto', type: 'button', 'data-fid': 'nt:camera', onclick: function () { lerFoto(true); } }, I('camera'), 'Foto da nota'),
+      h('button', { class: 'btn btn-foto', type: 'button', 'data-fid': 'nt:galeria', onclick: function () { lerFoto(false); } }, I('baixar'), 'Fotos da galeria'),
+      h('button', { class: 'btn', type: 'button', 'data-fid': 'nt:planilha', onclick: importarPlanilha }, I('baixar'), 'Importar planilha'),
+      h('button', { class: 'btn', type: 'button', 'data-fid': 'nt:manual', onclick: function () { editar({ loja: '', data: U.hoje(), itens: [{ nome: '', qtd: null, unit: null, total: null }], desconto: null, total: null, origem: 'mao' }); } }, I('mais'), 'Lançar à mão'));
     function ir(d, fid) { mesSel = somaMes(mesSel, d); var novo = secao(); if (raiz.parentNode) raiz.parentNode.replaceChild(novo, raiz); var b = novo.querySelector('[data-fid="' + fid + '"]'); if (b) b.focus(); }
     var raiz = h('section', { class: 'cartao nt-secao', 'data-fid': 'nt:secao' },
       h('h2', null, 'Compras feitas'),
       h('div', { class: 'acoes ft-acoes' },
-        h('button', { class: 'btn primario', type: 'button', 'data-fid': 'nt:registrar', 'aria-expanded': 'false', onclick: function () { var ab = fotoBox.hasAttribute('hidden'); if (ab) fotoBox.removeAttribute('hidden'); else fotoBox.setAttribute('hidden', 'hidden'); this.setAttribute('aria-expanded', ab ? 'true' : 'false'); } }, I('camera'), 'Registrar nota'),
-        h('button', { class: 'btn', type: 'button', 'data-fid': 'nt:manual', onclick: function () { editar({ loja: '', data: U.hoje(), itens: [{ nome: '', qtd: null, unit: null, total: null }], desconto: null, total: null, origem: 'mao' }); } }, I('mais'), 'Lançar à mão'),
-        h('button', { class: 'btn', type: 'button', 'data-fid': 'nt:planilha', onclick: importarPlanilha }, I('baixar'), 'Importar planilha (Excel/CSV)')),
+        h('button', { class: 'btn primario', type: 'button', 'data-fid': 'nt:registrar', 'aria-expanded': 'false', onclick: function () { var ab = fotoBox.hasAttribute('hidden'); if (ab) fotoBox.removeAttribute('hidden'); else fotoBox.setAttribute('hidden', 'hidden'); this.setAttribute('aria-expanded', ab ? 'true' : 'false'); } }, I('mais'), 'Registrar nota')),
       fotoBox,
       h('div', { class: 'acoes nt-mes', 'data-fid': 'nt:mes' },
         h('button', { class: 'btn btn-icone', type: 'button', 'data-fid': 'nt:mes-ant', 'aria-label': 'Mês anterior', onclick: function () { ir(-1, 'nt:mes-ant'); } }, '‹'),
         h('strong', { 'data-fid': 'nt:mes-rot', 'aria-live': 'polite' }, rotMes(mesSel)),
         h('button', { class: 'btn btn-icone', type: 'button', 'data-fid': 'nt:mes-prox', 'aria-label': 'Próximo mês', onclick: function () { ir(1, 'nt:mes-prox'); } }, '›')),
       r.n ? h('div', null,
-        h('p', { class: 'cp-total', 'data-fid': 'nt:total-mes' }, 'Total gasto: ' + N.brl(r.total) + ' em ' + r.n + (r.n === 1 ? ' compra' : ' compras')),
-        h('ul', { class: 'nt-lojas', 'data-fid': 'nt:lojas', 'aria-label': 'Total por loja' }, r.porLoja.map(function (l) {
+        h('p', { class: 'nt-total-linha', 'data-fid': 'nt:total-mes' }, h('span', null, 'Total gasto'), h('strong', null, N.brl(r.total)), h('small', null, r.n + (r.n === 1 ? ' compra' : ' compras'))),
+        r.porLoja.length < 2 ? null : h('ul', { class: 'nt-lojas', 'data-fid': 'nt:lojas', 'aria-label': 'Total por loja' }, r.porLoja.map(function (l) {
           return h('li', null, h('span', null, l.loja), h('small', null, N.brl(l.total) + ' · ' + l.n + (l.n === 1 ? ' compra' : ' compras')));
         })),
         h('h3', null, 'Compras do mês'),
@@ -199,7 +199,7 @@
           return h('li', { class: 'compra' }, h('button', { class: 'item dupla', type: 'button', 'data-fid': 'nt:c:' + c.id, onclick: function () { detalhe(c); } },
             h('span', { class: 't' }, (c.loja || 'Sem loja') + ' · ' + dbr(c.data), h('small', null, (N.semValor(c) ? 'sem valor · corrigir' : N.brl(N.totalDe(c)) + (c.total === null || c.total === 0 || c.estimado ? ' (soma)' : '')) + ' · ' + c.itens.length + (c.itens.length === 1 ? ' item' : ' itens')))));
         })))
-        : h('p', { class: 'vazio', 'data-fid': 'nt:vazio' }, 'Nenhuma compra neste mês. Registre uma nota ou lance à mão.'));
+        : h('p', { class: 'vazio', 'data-fid': 'nt:vazio' }, 'Nenhuma compra neste mês.'));
     return raiz;
   }
 

@@ -18,7 +18,7 @@ with sync_playwright() as p:
     for w in (390, 1280):
         pg = b.new_context(viewport={'width': w, 'height': 844}).new_page(); erros = []; pg.on('pageerror', lambda e: erros.append(str(e)))
         pg.goto(base + '#/compras'); pg.wait_for_timeout(700)
-        bt = pg.locator('[data-fid="nt:planilha"]'); check(bt.count() == 1 and bt.bounding_box()['height'] >= 44, '%d botão Importar planilha >=44px' % w)
+        pg.locator('[data-fid="nt:registrar"]').click(); bt = pg.locator('[data-fid="nt:planilha"]'); check(bt.count() == 1 and bt.bounding_box()['height'] >= 44, '%d botão Importar planilha >=44px' % w)
         with pg.expect_file_chooser() as fc: bt.click()
         fc.value.set_files(XLSX); pg.wait_for_timeout(1200)
         av = pg.locator('[data-fid="nt:editor"]').inner_text()
@@ -32,7 +32,9 @@ with sync_playwright() as p:
         it = n['itens'][150] if n else {}
         check(it.get('qtd') == 12 and it.get('unit') == 1.69 and it.get('total') == 20.28, '%d último item 12 x 1,69 = 20,28' % w)
         check(sum(1 for x in n['itens'] if x['nome'].startswith('BISNAGUINHA')) >= 2, '%d linhas repetidas mantidas' % w)
-        with pg.expect_file_chooser() as fc: pg.locator('[data-fid="nt:planilha"]').click()
+        with pg.expect_file_chooser() as fc:
+            if not pg.locator('[data-fid="nt:planilha"]').is_visible(): pg.locator('[data-fid="nt:registrar"]').click()
+            pg.locator('[data-fid="nt:planilha"]').click()
         fc.value.set_files(CSV); pg.wait_for_timeout(800)
         av = pg.locator('[data-fid="nt:editor"]').inner_text()
         check('2 itens' in av and 'confere com o valor pago' in av and 'Informe a data' not in av, '%d csv aviso: %s' % (w, av[:100]))

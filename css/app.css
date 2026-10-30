@@ -498,3 +498,8 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .nt-det-itens { width: 100%; text-align: left; }
 .nt-mais-fotos { grid-column: 1 / -1; display: flex; flex-direction: column; gap: .3rem; }
 .nt-mais-fotos .btn { min-height: 44px; }
+
+.nt-menu[hidden] { display: none; }
+.nt-menu { padding: .5rem 0; }
+.nt-total-linha { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; margin: .5rem 0; }
+.nt-total-linha small { color: var(--c-texto-2); }

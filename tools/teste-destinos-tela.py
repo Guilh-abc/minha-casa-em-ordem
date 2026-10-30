@@ -18,6 +18,14 @@ ETQ = pathlib.Path(a.etiqueta).read_bytes() if a.etiqueta else png(0)
 BOL = pathlib.Path(a.boleto).read_bytes() if a.boleto else png(0)
 FOTO = {'r': {}}
 CHAT = {'r': ''}
+def abrir_menu(pg, fid):
+    el = pg.locator('[data-fid="%s"]' % fid).first
+    if el.count() and not el.is_visible():
+        op = 'nt:registrar' if fid.startswith('nt:') else 'cp:adicionar'
+        o = pg.locator('[data-fid="%s"]' % op)
+        if o.count(): o.first.click(); pg.wait_for_timeout(80)
+    return el
+
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=a.chrome) if a.chrome else p.chromium.launch()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}); ctx.add_init_script(RELOGIO)
@@ -36,7 +44,7 @@ with sync_playwright() as p:
     def contar(): return pg.evaluate("(function(s){return {t:s.tarefas.filter(function(x){return x.id!=='tx'}).map(function(x){return x.titulo}),c:s.compromissos.map(function(x){return x.titulo}),k:s.compras.map(function(x){return x.nome})}})(PS.store.get())")
     def foto(fid, resp):
         FOTO['r'] = resp
-        with pg.expect_file_chooser() as fc: pg.locator('[data-fid="%s"]' % fid).first.click()
+        with pg.expect_file_chooser() as fc: abrir_menu(pg, fid).click()
         fc.value.set_files({'name': 'a.png', 'mimeType': 'image/png', 'buffer': png(0)}); pg.wait_for_timeout(700)
     SALVAR = lambda: (pg.locator('.modal button', has_text='Salvar').click(), pg.wait_for_timeout(300))
     AG = {'destino': 'agenda', 'titulo': 'Vacina Maria Alice', 'data': '07/11/2026', 'hora': '10:00', 'local': 'Posto'}
