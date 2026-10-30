@@ -397,3 +397,22 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .cal-num { font-weight: 800; font-size: .85rem; }
 .cal-pt { min-width: .4rem; height: .4rem; border-radius: 99px; background: var(--c-magenta); font-size: .5rem; line-height: .4rem; }
 .cal-pt:not(:empty) { height: auto; padding: .05rem .25rem; line-height: 1; }
+
+/* ---------- Assistente ---------- */
+.tela-ass .cartao { max-width: 46rem; }
+.ass-atalhos { display: flex; flex-wrap: wrap; gap: .4rem; margin: .3rem 0 .6rem; }
+.ass-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; max-height: 55vh; overflow-y: auto; }
+.ass-msg { padding: .5rem .7rem; border-radius: var(--raio-g); background: var(--c-superficie-2); max-width: 92%; overflow-wrap: anywhere; }
+.ass-msg.eu { align-self: flex-end; border: 2px solid var(--c-magenta); }
+.ass-msg.ia { align-self: flex-start; border: 2px solid var(--c-linha); }
+.ass-autor { margin: 0 0 .2rem; font-size: .62rem; font-weight: 700; color: var(--c-magenta-claro); text-transform: uppercase; letter-spacing: .04em; }
+.ass-texto { white-space: pre-wrap; font-size: .78rem; line-height: 1.45; }
+.ass-sug { margin-top: .5rem; padding: .5rem; border-radius: var(--raio); border: 2px dashed var(--c-aviso); }
+.ass-sug p { display: flex; gap: .4rem; align-items: center; margin: 0 0 .4rem; font-size: .72rem; }
+.ass-ok { color: var(--c-ok); }
+.ass-status { min-height: 1.2em; font-size: .7rem; color: var(--c-texto-2); }
+.ass-form textarea { width: 100%; min-height: 2.75rem; resize: vertical; font: inherit; color: var(--c-texto); background: var(--c-fundo); border: 2px solid var(--c-linha); border-radius: var(--raio); padding: .4rem; }
+.ass-form textarea:focus-visible { outline: none; box-shadow: var(--anel); }
+.ass-nota { margin-top: .6rem; font-size: .64rem; color: var(--c-texto-3); }
+@media (max-width: 640px) { .ass-texto { font-size: .92rem; } .ass-atalhos .btn { flex: 1 1 100%; } .ass-msg { max-width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .ass-lista { scroll-behavior: auto; } }
