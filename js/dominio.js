@@ -84,6 +84,28 @@
       return (a.vence || '9999') < (b.vence || '9999') ? -1 : (a.vence || '9999') > (b.vence || '9999') ? 1 : 0;
     });
   }
+  /* ---------- quadro de tarefas por prazo ----------
+     Regra simples (docs/TAREFAS.md): semana corrente de segunda a domingo; Esta semana = de amanhã até domingo (no domingo fica vazia).
+     Mover: Hoje = hoje; Esta semana = esse domingo; Depois = hoje + 14 dias; Sem data = limpa; Atrasadas não é destino. */
+  var COLUNAS = [['atrasadas', 'Atrasadas'], ['hoje', 'Hoje'], ['semana', 'Esta semana'], ['depois', 'Depois'], ['semdata', 'Sem data']];
+  function fimDaSemana(hoje) { var d = U.dowIso(hoje); return U.somaDias(hoje, d === 0 ? 0 : 7 - d); }   /* semana de segunda a domingo */
+  function colunaPrazo(t, hoje) {
+    if (!t.vence) return 'semdata';
+    if (t.vence < hoje) return 'atrasadas';
+    if (t.vence === hoje) return 'hoje';
+    return t.vence <= fimDaSemana(hoje) ? 'semana' : 'depois';
+  }
+  function quadroPrazo(tarefas, hoje, lista) {
+    var cols = COLUNAS.map(function (c) { return { id: c[0], rotulo: c[1], itens: [] }; }), idx = {};
+    cols.forEach(function (c) { idx[c.id] = c; });
+    ordenarTarefas(tarefas.filter(function (t) { return !t.feita && (!lista || t.lista === lista); })).forEach(function (t) { idx[colunaPrazo(t, hoje)].itens.push(t); });
+    return cols;
+  }
+  function dataDaColuna(col, hoje) {
+    return col === 'hoje' ? hoje : col === 'semana' ? fimDaSemana(hoje) : col === 'depois' ? U.somaDias(hoje, 14) : col === 'semdata' ? '' : null;
+  }
+  function moverTarefa(t, col, hoje) { var d = dataDaColuna(col, hoje); if (d === null) return false; t.vence = d; return true; }
+
   /* tarefas do dia: vencem hoje/atrasadas + as de prioridade alta sem data */
   function tarefasDoDia(s, hoje) {
     return ordenarTarefas(s.tarefas.filter(function (t) { return !t.feita && ((t.vence && t.vence <= hoje) || (!t.vence && t.prio === 'alta')); }));
@@ -111,5 +133,5 @@
   }
   function saudacao(h) { return h < 5 ? 'Boa madrugada' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
 
-  PS.dom = { pendencias: pendencias, itensDoDia: itensDoDia, ocorrenciaVisivel: ocorrenciaVisivel, ocorrenciasConta: ocorrenciasConta, ocorrenciasLembrete: ocorrenciasLembrete, aVencer: aVencer, ordenarCompromissos: ordenarCompromissos, proximosCompromissos: proximosCompromissos, ordenarTarefas: ordenarTarefas, tarefasDoDia: tarefasDoDia, fraseDoDia: fraseDoDia, listasComTarefas: listasComTarefas, saudacao: saudacao, ROTULO_PRIO: ROTULO_PRIO };
+  PS.dom = { pendencias: pendencias, itensDoDia: itensDoDia, ocorrenciaVisivel: ocorrenciaVisivel, ocorrenciasConta: ocorrenciasConta, ocorrenciasLembrete: ocorrenciasLembrete, aVencer: aVencer, ordenarCompromissos: ordenarCompromissos, proximosCompromissos: proximosCompromissos, ordenarTarefas: ordenarTarefas, tarefasDoDia: tarefasDoDia, fraseDoDia: fraseDoDia, listasComTarefas: listasComTarefas, saudacao: saudacao, ROTULO_PRIO: ROTULO_PRIO, COLUNAS_PRAZO: COLUNAS, fimDaSemana: fimDaSemana, colunaPrazo: colunaPrazo, quadroPrazo: quadroPrazo, dataDaColuna: dataDaColuna, moverTarefa: moverTarefa };
 })(window);

@@ -9,19 +9,23 @@
   function ddmm(iso) { return iso.slice(8, 10) + '/' + iso.slice(5, 7); }
   function curta(iso) { return DIAS[new Date(utc(iso)).getUTCDay()] + ', ' + ddmm(iso); }
   function brl(v) { return v == null ? 'sem valor' : 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  /* domingo da semana corrente (semana de segunda a domingo); no domingo é o próprio dia */
+  function fimSemana(iso) { var d = new Date(utc(iso)).getUTCDay(); return somaDias(iso, d === 0 ? 0 : 7 - d); }
+  function rotSemana(hoje) { var f = fimSemana(hoje); return f === hoje ? 'nesta semana (hoje, ' + ddmm(hoje) + ')' : 'nesta semana (' + ddmm(hoje) + ' a ' + ddmm(f) + ')'; }
   function sem(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
   function classificar(pergunta, hoje) {
     var p = sem(pergunta), am = somaDias(hoje, 1);
     if (/atrasad|vencid|em atraso/.test(p)) return { tipo: 'atrasadas', ini: '', fim: somaDias(hoje, -1), rotulo: 'atrasadas' };
     if (/prioridade/.test(p) && /alta|urgent/.test(p)) return { tipo: 'prioridade', rotulo: 'prioridade alta' };
-    if (/venc|pagar|contas?\b/.test(p) && /semana/.test(p)) return { tipo: 'vencimentos', ini: hoje, fim: somaDias(hoje, 7), rotulo: 'nos próximos 7 dias (' + ddmm(hoje) + ' a ' + ddmm(somaDias(hoje, 7)) + ')' };
+    if (/venc|pagar|contas?\b/.test(p) && /semana/.test(p)) return { tipo: 'vencimentos', ini: hoje, fim: fimSemana(hoje), rotulo: rotSemana(hoje) };
     if (/agenda|compromisso|marcado|tenho|reuni|consulta/.test(p)) {
       if (/depois de amanha/.test(p)) { var d2 = somaDias(hoje, 2); return { tipo: 'agenda', ini: d2, fim: d2, rotulo: 'depois de amanhã (' + ddmm(d2) + ')' }; }
       if (/amanha/.test(p)) return { tipo: 'agenda', ini: am, fim: am, rotulo: 'amanhã (' + ddmm(am) + ')' };
       if (/hoje/.test(p)) return { tipo: 'agenda', ini: hoje, fim: hoje, rotulo: 'hoje (' + ddmm(hoje) + ')' };
-      if (/semana/.test(p)) return { tipo: 'agenda', ini: hoje, fim: somaDias(hoje, 7), rotulo: 'nos próximos 7 dias (' + ddmm(hoje) + ' a ' + ddmm(somaDias(hoje, 7)) + ')' };
+      if (/semana/.test(p)) return { tipo: 'agenda', ini: hoje, fim: fimSemana(hoje), rotulo: rotSemana(hoje) };
     }
+    if (/tarefa|afazer|pendente/.test(p)) return { tipo: 'tarefas', rotulo: 'pendentes' };
     return null;
   }
 
@@ -45,6 +49,10 @@
       itens = (d.tarefas || []).filter(real).filter(function (t) { return !t.feita && t.prio === 'alta'; });
       linhas = itens.map(function (t) { return '- ' + t.titulo + (t.vence ? ' (até ' + curta(t.vence) + ')' : ''); });
       texto = itens.length ? 'Tarefas de prioridade alta:\n' + linhas.join('\n') : 'Não encontrei tarefa pendente de prioridade alta.';
+    } else if (q.tipo === 'tarefas') {
+      itens = (d.tarefas || []).filter(real).filter(function (t) { return !t.feita; });
+      linhas = itens.map(function (t) { return '- ' + t.titulo + (t.lista ? ' [' + t.lista + ']' : '') + (t.vence ? ' (até ' + curta(t.vence) + ')' : ''); });
+      texto = itens.length ? 'Tarefas pendentes (' + itens.length + '):\n' + linhas.join('\n') : 'Não encontrei tarefa pendente.';
     }
     itens.forEach(function (x) { if (x.data) p.datas[ddmm(x.data)] = 1; if (x.vence) p.datas[ddmm(x.vence)] = 1; if (x.hora) p.horas[x.hora] = 1; addValor(p, x.valor); });
     if (q.ini) p.datas[ddmm(q.ini)] = 1; if (q.fim) p.datas[ddmm(q.fim)] = 1;
@@ -68,7 +76,17 @@
     return permitidoDeTexto(String(ctx || '') + (criar ? '\n' + normHoras(pergunta) : ''), hoje);
   }
   function normHoras(s) { return String(s || '').replace(/\b(\d{1,2})\s*h\s*(\d{2})?\b/gi, function (a, h1, m1) { return pad(h1) + ':' + (m1 || '00'); }); }
-  function limpar(s) { return String(s || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<\/?think>/gi, '').trim(); }
+  /* tira <think>, reticências em série, linhas repetidas e frases em laço (o modelo pequeno às vezes repete sem parar) */
+  function limpar(s) {
+    s = String(s || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<\/?think>/gi, '');
+    s = s.replace(/(\s*(\.{2,}|…))+/g, '…').replace(/(\S)…\s*$/, '$1.').replace(/^\s*…\s*$/gm, '');
+    var vistas = {}, out = [];
+    s.split('\n').forEach(function (l) { var k = l.trim().toLowerCase(); if (k && vistas[k]) return; if (k) vistas[k] = 1; out.push(l.replace(/\s+$/, '')); });
+    s = out.join('\n');
+    var ant;
+    do { ant = s; s = s.replace(/(\b[^.!?\n]{3,}?[.!?])(\s+\1)+/g, '$1'); } while (s !== ant);
+    return s.replace(/\n{3,}/g, '\n\n').trim();
+  }
 
   /* true se tudo que a resposta afirma (horários, datas, valores, quantidade de itens) está na lista permitida */
   function fiel(texto, p) {
@@ -81,7 +99,7 @@
     return true;
   }
 
-  var C = { permitidoResposta: permitidoResposta, limpar: limpar, classificar: classificar, responder: responder, fiel: fiel, permitidoDeTexto: permitidoDeTexto, somaDias: somaDias };
+  var C = { permitidoResposta: permitidoResposta, limpar: limpar, classificar: classificar, responder: responder, fiel: fiel, permitidoDeTexto: permitidoDeTexto, somaDias: somaDias, fimSemana: fimSemana };
   if (typeof module !== 'undefined' && module.exports) module.exports = C;
   if (raiz) { raiz.PS = raiz.PS || {}; raiz.PS.consultas = C; }
 })(typeof window !== 'undefined' ? window : null);

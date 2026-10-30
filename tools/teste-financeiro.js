@@ -219,4 +219,17 @@ t('desfazer: remove só as fixas intocadas e apaga o aviso', function () {
 t('formas válidas e rótulos', function () {
   assert.strictEqual(F.formaOk('pix'), 'pix'); assert.strictEqual(F.formaOk('x'), ''); assert.strictEqual(F.rotuloForma('gerar'), 'Gerar boleto'); assert.strictEqual(F.FORMAS.length, 6);
 });
+t('detalhe: mensal com histórico de pagamentos (mais recente primeiro) e recorrência', function () {
+  var d = F.detalheConta(conta({ pagas: { '2026-08': '2026-08-09', '2026-09': true }, valores: { '2026-09': 130 }, forma: 'pix', obs: 'App do banco' }), HOJE);
+  assert.strictEqual(d.recorrencia, 'Todo mês, dia 10');
+  assert.deepStrictEqual(d.historico.map(function (x) { return x.mes + '|' + (x.pagaEm || '-') + '|' + x.valor; }), ['2026-09|-|130', '2026-08|2026-08-09|100']);
+  assert.strictEqual(d.proximo, '2026-10-10');
+});
+t('detalhe: avulsa paga e anual', function () {
+  var d = F.detalheConta(conta({ mensal: false, data: '2026-10-20', paga: true, pagaEm: '2026-10-05' }), HOJE);
+  assert.strictEqual(d.recorrencia, 'Uma vez, vence 20/10/2026');
+  assert.deepStrictEqual(d.historico, [{ mes: '', pagaEm: '2026-10-05', valor: 100 }]);
+  var a = F.detalheConta(conta({ mensal: false, anual: true, mes: 3, dia: 15 }), HOJE);
+  assert.strictEqual(a.recorrencia, 'Todo ano, 15 de março'); assert.deepStrictEqual(a.historico, []);
+});
 console.log('\n' + ok + ' ok, ' + falhas + ' falhas'); process.exit(falhas ? 1 : 0);

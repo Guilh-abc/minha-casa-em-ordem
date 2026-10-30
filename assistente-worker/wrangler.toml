@@ -1,4 +1,4 @@
 name = "minha-casa-assistente"
 main = "worker.js"
 compatibility_date = "2026-10-01"
-workers_dev = true
+# secret: wrangler secret put LIQUID_API_KEY (nunca no repositório)

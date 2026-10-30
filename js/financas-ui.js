@@ -52,11 +52,50 @@
     PS.aviso('Desfeito: voltou para "Em aberto"');
   }
 
+  /* ---------- detalhe da conta (toque no cartão) com Editar ---------- */
+  function contaPorId(id) { var l = S.get().contas || []; for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
+  function detalhe(p) {
+    if (p.tipo !== 'conta') { if (p.href && p.href !== '#/familia') location.hash = p.href; return; }
+    var corpo = h('div', { class: 'det-conta', 'data-fid': 'dc:corpo' }), editando = false, mudou = false;
+    function info(rot, v) { return v === '' || v == null ? null : h('div', { class: 'det-linha' }, h('dt', null, rot), h('dd', null, v)); }
+    function desenhar() {
+      var c = contaPorId(p.id); U.limpar(corpo);
+      if (!c) { corpo.appendChild(h('p', { class: 'vazio' }, 'Conta não encontrada.')); return; }
+      if (editando) {
+        var G = PS.gerenciar, m0 = U.ym(U.hoje());
+        var campos = G.camposConta(m0).filter(function (f) { return !f.mostrar || f.mostrar(c); });
+        corpo.appendChild(h('div', { class: 'campos', 'data-fid': 'dc:form' }, campos.map(function (f) {
+          return G.campoEl(c, f, function (item, ff, v) {
+            S.alterar(function () { if (ff.set) ff.set(item, v); else if (ff.tipo === 'number') item[ff.k] = v === '' ? null : Number(v); else item[ff.k] = v; item.exemplo = false; }, true);
+            mudou = true; if (ff.redesenha) desenhar();
+          });
+        })));
+        corpo.appendChild(h('div', { class: 'acoes' }, h('button', { class: 'btn primario', type: 'button', 'data-fid': 'dc:concluir', onclick: function () { editando = false; desenhar(); PS.aviso('Conta atualizada'); var b = corpo.querySelector('[data-fid="dc:editar"]'); if (b) b.focus(); } }, I('check'), 'Concluir edição')));
+        var pr = corpo.querySelector('input, select'); if (pr) pr.focus();
+        return;
+      }
+      var d = F.detalheConta(c, U.hoje()), donos = { gui: 'Gui', esposa: S.get().config.esposa, casal: 'Casal' };
+      corpo.appendChild(h('dl', { class: 'det-info' },
+        info('Nome', c.titulo), info('Valor', c.valor != null ? brl(c.valor) : 'Sem valor'), info('Vencimento', d.proximo ? dataBR(d.proximo) : ''),
+        info('Categoria', NOME_CAT[c.cat] || c.cat), info('Forma de pagamento', c.forma ? F.rotuloForma(c.forma) : 'Não definida'),
+        info('Recorrência', d.recorrencia + (c.arquivada ? ' (arquivada)' : '')), info('De quem', donos[c.dono] || ''), info('Observações', c.obs || ''), info('Fatura vinculada', c.cartaoRef || '')));
+      corpo.appendChild(h('h3', { class: 'det-tit' }, 'Histórico de pagamentos'));
+      corpo.appendChild(d.historico.length ? h('ul', { class: 'det-hist', 'data-fid': 'dc:hist' }, d.historico.slice(0, 24).map(function (x) {
+        return h('li', null, h('span', null, x.mes ? mesRot(x.mes) : 'Pagamento'), h('span', null, x.pagaEm ? 'pago em ' + dataBR(x.pagaEm) : 'pago'), h('span', null, x.valor != null ? brl(x.valor) : ''));
+      })) : h('p', { class: 'vazio', 'data-fid': 'dc:hist' }, 'Nenhum pagamento registrado ainda.'));
+      corpo.appendChild(h('div', { class: 'acoes' }, h('button', { class: 'btn primario', type: 'button', 'data-fid': 'dc:editar', onclick: function () { editando = true; desenhar(); } }, I('lapis'), 'Editar')));
+    }
+    desenhar();
+    PS.modal.abrir(p.titulo, corpo, [{ rotulo: 'Fechar', acao: function () { if (mudou) PS.redesenhar(); } }]);
+    var b = corpo.querySelector('[data-fid="dc:editar"]'); if (b) b.focus();
+  }
+
   /* ---------- linha de conta/fatura ---------- */
   function linha(p, paga) {
     var sel = paga ? h('span', { class: 'selo ok' }, I('check'), 'Paga' + (p.pagaEm ? ' em ' + dataBR(p.pagaEm).slice(0, 5) : '')) : seloNivel(p);
     return h('div', { class: 'conta-linha' + (paga ? ' feito' : '') + (!paga && p.aviso ? ' com-aviso' : '') },
-      h('span', { class: 'cl-info' }, I(p.icone), h('span', { class: 't' }, p.titulo, h('small', null, apoio(paga ? { tipo: 'x', valor: p.valor } : p, (paga ? 'Venceu ' : 'Vence ') + dataBR(p.data).slice(0, 5) + (p.anual ? ' (anual)' : '')), p.obs ? ' · ' + p.obs : null))),
+      h(p.tipo === 'conta' ? 'button' : 'span', p.tipo === 'conta' ? { class: 'cl-info cl-abrir', type: 'button', 'data-fid': 'dc:' + p.id + p.chave, 'aria-label': 'Ver detalhes de ' + p.titulo, onclick: function () { detalhe(p); } } : { class: 'cl-info' },
+        I(p.icone), h('span', { class: 't' }, p.titulo, h('small', null, apoio(paga ? { tipo: 'x', valor: p.valor } : p, (paga ? 'Venceu ' : 'Vence ') + dataBR(p.data).slice(0, 5) + (p.anual ? ' (anual)' : '')), p.obs ? ' · ' + p.obs : null))),
       p.forma ? h('span', { class: 'selo neutro forma', 'data-forma': p.forma }, F.rotuloForma(p.forma)) : null,
       sel,
       paga ? h('button', { class: 'btn peq', type: 'button', 'data-fid': 'dz:' + p.tipo + p.id + p.chave, onclick: function () { desfazer(p); } }, I('desfazer'), 'Desfazer')

@@ -125,8 +125,27 @@
         .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
         .then(function () { enviando = false; desenhar(); campo.focus(); });
     }
+    /* entrada por voz (Web Speech API, pt-BR): o texto aparece no campo e é enviado quando a escuta termina */
+    var Reconhecer = g.SpeechRecognition || g.webkitSpeechRecognition, rec = null, ouvindo = false;
+    var mic = Reconhecer ? h('button', { class: 'btn btn-mic', type: 'button', 'data-fid': 'ass-voz', 'aria-label': 'Falar a pergunta', 'aria-pressed': 'false', onclick: function () { if (ouvindo) { if (rec) rec.stop(); } else ouvir(); } }, I('microfone'), h('span', { class: 'mic-rot' }, 'Falar')) : null;
+    function marcarOuvindo(v) {
+      ouvindo = v; if (!mic) return;
+      mic.setAttribute('aria-pressed', v ? 'true' : 'false'); mic.setAttribute('aria-label', v ? 'Parar de ouvir' : 'Falar a pergunta');
+      mic.classList.toggle('ouvindo', v); mic.querySelector('.mic-rot').textContent = v ? 'Ouvindo…' : 'Falar';
+      status.textContent = v ? 'Ouvindo… fale sua pergunta.' : '';
+    }
+    function ouvir() {
+      if (enviando) return;
+      try { rec = new Reconhecer(); } catch (e) { return; }
+      rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+      rec.onresult = function (ev) { var t = ''; for (var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; campo.value = t; };
+      rec.onerror = function (ev) { marcarOuvindo(false); status.textContent = ev && (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') ? 'Microfone bloqueado. Libere o acesso nas permissões do navegador.' : 'Não consegui ouvir. Tente de novo.'; rec = null; };
+      rec.onend = function () { var era = ouvindo; marcarOuvindo(false); rec = null; if (era && campo.value.trim()) enviar(campo.value); };
+      marcarOuvindo(true);
+      try { rec.start(); } catch (e) { marcarOuvindo(false); }
+    }
     var form = h('form', { class: 'ass-form', onsubmit: function (e) { e.preventDefault(); enviar(campo.value); } },
-      h('label', { class: 'campo' }, h('span', null, 'Sua pergunta'), campo), h('div', { class: 'acoes' }, btn,
+      h('label', { class: 'campo', 'for': 'ass-pergunta' }, h('span', null, 'Sua pergunta')), h('div', { class: 'ass-linha-campo' }, campo, mic), h('div', { class: 'acoes' }, btn,
         h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-limpar', onclick: function () { conversa = []; desenhar(); } }, 'Limpar conversa')));
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(campo.value); } });
     var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Perguntas rápidas' },

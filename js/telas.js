@@ -98,24 +98,66 @@
   } };
 
   /* ---------- TAREFAS ---------- */
+  var TODOS = '__todos', modoTarefas = 'lista';
+  function seloPrio(p) { return selo(p === 'alta' ? 'perigo' : p === 'media' ? 'aviso' : 'neutro', p === 'alta' ? 'alerta' : 'estrela', D.ROTULO_PRIO[p]); }
+  function tagLista(t) { return h('span', { class: 'tag-lista' }, t.lista); }
+  function alternarFeita(id) { S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === id) x.feita = !x.feita; }); }); }
+  function moverPara(id, col) {
+    var ok = false, hoje = U.hoje();
+    S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === id) ok = D.moverTarefa(x, col, hoje); }); });
+    if (ok) PS.aviso(col === 'semdata' ? 'Tarefa sem data' : 'Prazo: ' + U.dataCurta(D.dataDaColuna(col, hoje)));
+  }
+  function quadro(s, hoje, lista) {
+    var cols = D.quadroPrazo(s.tarefas, hoje, lista);
+    return h('div', { class: 'quadro', role: 'list', 'aria-label': 'Quadro de tarefas por prazo' }, cols.map(function (c) {
+      var col = h('section', { class: 'coluna-prazo cp-' + c.id, role: 'listitem', 'data-col': c.id, 'data-fid': 'qc:' + c.id, 'aria-label': c.rotulo + ', ' + c.itens.length + (c.itens.length === 1 ? ' tarefa' : ' tarefas') },
+        h('h3', null, c.rotulo, h('small', null, String(c.itens.length))),
+        c.itens.length ? c.itens.map(function (t) {
+          var sel = h('select', { class: 'mover', 'data-fid': 'mv:' + t.id, 'aria-label': 'Mover "' + t.titulo + '" para' },
+            [h('option', { value: '' }, 'Mover para…')].concat(D.COLUNAS_PRAZO.filter(function (x) { return x[0] !== 'atrasadas' && x[0] !== c.id; }).map(function (x) { return h('option', { value: x[0] }, x[1]); })));
+          sel.addEventListener('change', function () { if (sel.value) moverPara(t.id, sel.value); });
+          var card = h('div', { class: 'cartao-tarefa', draggable: 'true', 'data-id': t.id, 'data-fid': 'qt:' + t.id },
+            h('span', { class: 't' }, t.titulo || '(sem título)', tagExemplo(t)),
+            h('span', { class: 'meta-tarefa' }, seloPrio(t.prio), tagLista(t), t.vence ? h('span', { class: 'data' }, U.dataCurta(t.vence)) : null),
+            h('span', { class: 'acoes-tarefa' }, sel,
+              h('button', { class: 'btn peq', type: 'button', 'data-fid': 'qf:' + t.id, 'aria-label': 'Concluir "' + t.titulo + '"', onclick: function () { alternarFeita(t.id); } }, I('check'), 'Concluir')));
+          card.addEventListener('dragstart', function (e) { e.dataTransfer.setData('text/plain', t.id); e.dataTransfer.effectAllowed = 'move'; card.classList.add('arrastando'); });
+          card.addEventListener('dragend', function () { card.classList.remove('arrastando'); });
+          return card;
+        }) : h('p', { class: 'vazio' }, 'Nada aqui'));
+      if (c.id !== 'atrasadas') {
+        col.addEventListener('dragover', function (e) { e.preventDefault(); col.classList.add('alvo'); });
+        col.addEventListener('dragleave', function () { col.classList.remove('alvo'); });
+        col.addEventListener('drop', function (e) { e.preventDefault(); col.classList.remove('alvo'); var id = e.dataTransfer.getData('text/plain'); if (id) moverPara(id, c.id); });
+      }
+      return col;
+    }));
+  }
   views.tarefas = { reativo: true, titulo: 'Tarefas', render: function () {
     var s = S.get(), hoje = U.hoje(), nomes = D.listasComTarefas(s);
-    if (!listaAtual || nomes.indexOf(listaAtual) < 0) listaAtual = nomes[0];
-    var abas = nomes.map(function (n) {
-      var pend = s.tarefas.filter(function (t) { return t.lista === n && !t.feita; }).length;
-      return h('button', { class: 'aba', type: 'button', role: 'tab', 'aria-selected': n === listaAtual ? 'true' : 'false', 'data-fid': 'aba:' + n, onclick: function () { listaAtual = n; PS.redesenhar(); } }, n, h('small', null, pend));
-    });
-    var ts = D.ordenarTarefas(s.tarefas.filter(function (t) { return t.lista === listaAtual; }));
-    var itens = ts.map(function (t) {
-      var p = t.prio;
-      var sp = selo(p === 'alta' ? 'perigo' : p === 'media' ? 'aviso' : 'neutro', p === 'alta' ? 'alerta' : 'estrela', D.ROTULO_PRIO[p]);
-      var venc = t.vence ? (t.feita ? selo('neutro', 'calendario', U.dataCurta(t.vence)) : seloVenc('', t.vence, hoje, false)) : null;
-      return h('button', { class: 'item tarefa' + (t.feita ? ' feito' : ''), type: 'button', role: 'checkbox', 'aria-checked': t.feita ? 'true' : 'false', 'data-fid': 'tr:' + t.id, onclick: function () { S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === t.id) x.feita = !x.feita; }); }); } },
-        caixa(t.feita), h('span', { class: 't' }, t.titulo, tagExemplo(t)), sp, venc);
-    });
+    if (!listaAtual || (listaAtual !== TODOS && nomes.indexOf(listaAtual) < 0)) listaAtual = nomes[0] || TODOS;
+    var todos = listaAtual === TODOS;
+    function aba(id, rot, pend) {
+      return h('button', { class: 'aba', type: 'button', role: 'tab', 'aria-selected': id === listaAtual ? 'true' : 'false', 'data-fid': 'aba:' + id, onclick: function () { listaAtual = id; PS.redesenhar(); } }, rot, h('small', null, pend));
+    }
+    var abas = [aba(TODOS, 'Todos', s.tarefas.filter(function (t) { return !t.feita; }).length)].concat(nomes.map(function (n) {
+      return aba(n, n, s.tarefas.filter(function (t) { return t.lista === n && !t.feita; }).length);
+    }));
+    var modos = h('div', { class: 'alternador', role: 'group', 'aria-label': 'Modo de exibição' }, [['lista', 'Lista'], ['quadro', 'Quadro']].map(function (m) {
+      return h('button', { class: 'btn peq' + (modoTarefas === m[0] ? ' ativo' : ''), type: 'button', 'aria-pressed': modoTarefas === m[0] ? 'true' : 'false', 'data-fid': 'tm:' + m[0], onclick: function () { modoTarefas = m[0]; PS.redesenhar(); } }, m[1]);
+    }));
+    var corpo;
+    if (modoTarefas === 'quadro') corpo = [quadro(s, hoje, todos ? '' : listaAtual), h('p', { class: 'nota' }, 'Arraste um cartão para outra coluna ou use "Mover para". Hoje = hoje; Esta semana = domingo; Depois = daqui a 14 dias; Sem data = tira o prazo. Concluídas ficam na Lista.')];
+    else {
+      var ts = D.ordenarTarefas(s.tarefas.filter(function (t) { return todos || t.lista === listaAtual; }));
+      corpo = ts.length ? ts.map(function (t) {
+        var venc = t.vence ? (t.feita ? selo('neutro', 'calendario', U.dataCurta(t.vence)) : seloVenc('', t.vence, hoje, false)) : null;
+        return h('button', { class: 'item tarefa' + (t.feita ? ' feito' : ''), type: 'button', role: 'checkbox', 'aria-checked': t.feita ? 'true' : 'false', 'data-fid': 'tr:' + t.id, onclick: function () { alternarFeita(t.id); } },
+          caixa(t.feita), h('span', { class: 't' }, t.titulo, tagExemplo(t), todos ? tagLista(t) : null), seloPrio(t.prio), venc);
+      }) : h('p', { class: 'vazio' }, 'Lista vazia. Adicione tarefas em Gerenciar → Tarefas.');
+    }
     return h('div', null, h('h1', { class: 'titulo-tela' }, 'Tarefas'),
-      h('div', { class: 'abas', role: 'tablist' }, abas),
-      itens.length ? itens : h('p', { class: 'vazio' }, 'Lista vazia. Adicione tarefas em Gerenciar → Tarefas.'));
+      h('div', { class: 'tarefas-topo' }, h('div', { class: 'abas', role: 'tablist' }, abas), modos), corpo);
   } };
 
   /* ---------- AGENDA ---------- */
