@@ -23,7 +23,7 @@ falhas, ok = [], []
 def check(cond, msg):
     (ok if cond else falhas).append(msg); print(('  ok   ' if cond else '  FALHA ') + msg)
 
-ROTAS = ['', 'rotina', 'tarefas', 'agenda', 'familia', 'cartoes', 'relaxar', 'gerenciar', 'gerenciar/habitos', 'gerenciar/tarefas', 'gerenciar/agenda', 'gerenciar/familia', 'gerenciar/links', 'gerenciar/sync', 'gerenciar/backup', 'sincronizar', 'instalar']
+ROTAS = ['', 'tarefas', 'agenda', 'compras', 'contas', 'cartoes', 'relaxar', 'gerenciar', 'gerenciar/tarefas', 'gerenciar/agenda', 'gerenciar/contas', 'gerenciar/links', 'gerenciar/sync', 'gerenciar/backup', 'sincronizar', 'instalar']
 NOMES = {'': 'hoje'}
 
 def novo_ctx(b, w, h, **kw):
@@ -55,9 +55,9 @@ with sync_playwright() as p:
             vistos.discard('')
             if r not in ('teclas',):
                 check(len(vistos) >= 2, '[%dx%d] #/%s setas movem o foco (%d posições)' % (w, h, r, len(vistos)))
-            if r in ('', 'rotina', 'tarefas', 'relaxar') and w == 1280:
+            if r in ('', 'tarefas', 'contas', 'relaxar') and w == 1280:
                 pg.screenshot(path=str(prints / ('tv-%s-%dx%d.png' % (nome, w, h))))
-            if r in ('', 'rotina', 'tarefas', 'agenda', 'familia', 'relaxar') and w == 1920:
+            if r in ('', 'tarefas', 'agenda', 'compras', 'contas', 'relaxar') and w == 1920:
                 pg.screenshot(path=str(prints / ('tv-%s-%dx%d.png' % (nome, w, h))))
         # Hoje deve caber sem rolagem vertical (meta de design)
         pg.evaluate("location.hash='#/'"); pg.wait_for_timeout(400)
@@ -68,16 +68,7 @@ with sync_playwright() as p:
 
     print('== Funcional 1280x720 ==')
     ctx, pg, erros = novo_ctx(b, 1280, 720)
-    pg.goto(base + 'index.html#/rotina'); pg.wait_for_selector('.habito'); pg.wait_for_timeout(300)
-    pg.keyboard.press('ArrowDown'); pg.wait_for_timeout(100)
-    foco = pg.evaluate("document.activeElement.getAttribute('data-fid')")
-    antes = pg.evaluate("document.activeElement.getAttribute('aria-checked')")
-    pg.keyboard.press('Enter'); pg.wait_for_timeout(200)
-    depois = pg.evaluate("document.querySelector('[data-fid=\"%s\"]').getAttribute('aria-checked')" % foco)
-    check(antes == 'false' and depois == 'true', 'Enter (OK) marca o hábito')
-    check(pg.evaluate("document.activeElement.getAttribute('data-fid')") == foco, 'foco permanece no item após marcar')
-    pg.reload(); pg.wait_for_selector('.habito'); pg.wait_for_timeout(300)
-    check(pg.evaluate("document.querySelector('[data-fid=\"%s\"]').getAttribute('aria-checked')" % foco) == 'true', 'hábito persiste após recarregar')
+    pg.goto(base + 'index.html#/tarefas'); pg.wait_for_selector('.item.tarefa'); pg.wait_for_timeout(300)
     # Back volta ao Hoje
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     check(pg.evaluate("location.hash") in ('#/', ''), 'Esc/Voltar leva ao Hoje')
@@ -94,14 +85,13 @@ with sync_playwright() as p:
         pg.click('text=Exportar JSON')
     arq = pathlib.Path(tempfile.mkdtemp()) / 'backup.json'; dl.value.save_as(str(arq))
     bk = json.loads(arq.read_text())
-    check(bk.get('app') == 'minha-casa-em-ordem' and len(bk['dados']['habitos']) >= 1, 'exportar JSON baixa backup válido')
+    check(bk.get('app') == 'minha-casa-em-ordem' and len(bk['dados']['tarefas']) >= 1 and 'habitos' not in bk['dados'] and 'lembretes' not in bk['dados'], 'exportar JSON baixa backup válido')
     # alterar e importar de volta
-    pg.evaluate("PS.store.alterar(function(s){ s.habitos = []; s.tarefas = []; }, true)")
+    pg.evaluate("PS.store.alterar(function(s){ s.tarefas = []; }, true)")
     with pg.expect_file_chooser() as fc:
         pg.click('text=Importar JSON')
     fc.value.set_files(str(arq)); pg.wait_for_selector('.modal'); pg.click('.modal >> text=Substituir'); pg.wait_for_timeout(300)
-    check(pg.evaluate("PS.store.get().habitos.length") == len(bk['dados']['habitos']) and pg.evaluate("PS.store.get().tarefas.length") == len(bk['dados']['tarefas']), 'importar JSON restaura os dados')
-    check(pg.evaluate("PS.store.habitoFeito(PS.store.get().habitos[0].id, PS.u.hoje()) || PS.store.habitoFeito('x','2000-01-01') === false"), 'histórico de hábitos preservado no backup')
+    check(pg.evaluate("PS.store.get().tarefas.length") == len(bk['dados']['tarefas']), 'importar JSON restaura os dados')
     # link de configuração: gera, abre em contexto limpo, importa
     pg.click('text=Gerar link agora'); pg.wait_for_selector('textarea[aria-label="Link de configuração"]')
     link = pg.input_value('textarea[aria-label="Link de configuração"]')
@@ -111,7 +101,7 @@ with sync_playwright() as p:
     ctx2, pg2, erros2 = novo_ctx(b, 1280, 720)
     pg2.goto(link.replace(base, base + 'index.html', 1) if 'index.html' not in link else link)
     pg2.wait_for_selector('text=Importar e substituir'); pg2.click('text=Importar e substituir'); pg2.wait_for_selector('.hoje'); pg2.wait_for_timeout(300)
-    cfg = pg2.evaluate("({n: PS.store.get().config.nome, l: PS.store.get().links.some(function(x){return x.titulo==='Meu atalho'}), h: PS.store.get().habitos.length})")
+    cfg = pg2.evaluate("({n: PS.store.get().config.nome, l: PS.store.get().links.some(function(x){return x.titulo==='Meu atalho'}), h: PS.store.get().tarefas.length})")
     check(cfg['n'] == 'Teste Link' and cfg['l'] and cfg['h'] >= 1, 'link de configuração: ida e volta em outro navegador limpo')
     check(not erros2, 'sem erros no contexto do link %s' % erros2[:2])
     # link inválido não quebra
@@ -133,61 +123,31 @@ with sync_playwright() as p:
     ctx.close()
 
 
-    print('== Lembrete do Bilu (casinha): perfil novo e perfil antigo ==')
-    ID = 'lembrete-bilu-casinha'
-    # perfil novo
+    print('== Perfil antigo com lembretes e hábitos guardados ==')
     ctx, pg, erros = novo_ctx(b, 1280, 720)
-    pg.goto(base + 'index.html#/familia'); pg.wait_for_selector('[data-fid="lm:%s"]' % ID); pg.wait_for_timeout(300)
-    txt = pg.inner_text('[data-fid="lm:%s"]' % ID)
-    check('Comprar casinha maior para o Bilu' in txt and 'A atual ficou pequena' in txt, 'Família mostra o lembrete do Bilu (perfil novo)')
-    check(pg.evaluate("!!document.querySelector('[data-fid=\"lm:%s\"] .ic-fam svg path')" % ID), 'Família mostra o ícone de casinha')
-    check(pg.evaluate("PS.store.get().lembretes.filter(function(l){return l.id==='%s'}).length" % ID) == 1, 'um único item do Bilu no estado')
-    pg.evaluate("document.activeElement && document.activeElement.blur()")
-    alcancou = False
-    for t_ in ['ArrowDown'] * 10 + ['ArrowUp'] * 10:
-        pg.keyboard.press(t_)
-        if pg.evaluate("document.activeElement && document.activeElement.getAttribute('data-fid')") == 'lm:' + ID: alcancou = True; break
-    check(alcancou, 'D-pad alcança o lembrete do Bilu em Família')
-    pg.keyboard.press('Enter'); pg.wait_for_timeout(200)
-    check(pg.evaluate("PS.store.get().lembretes.filter(function(l){return l.id==='%s'})[0].feito" % ID) is True, 'OK marca o lembrete como feito')
-    pg.reload(); pg.wait_for_selector('[data-fid="lm:%s"]' % ID)
-    check(pg.evaluate("document.querySelector('[data-fid=\"lm:%s\"]').getAttribute('aria-checked')" % ID) == 'true', 'feito persiste após recarregar')
-    pg.keyboard.press('Escape')
-    pg.evaluate("PS.store.alterar(function(s){ var l=s.lembretes.filter(function(x){return x.id==='%s'})[0]; l.feito=false; })" % ID)
-    pg.evaluate("location.hash='#/'"); pg.wait_for_selector('.hoje'); pg.wait_for_timeout(300)
-    check(pg.evaluate("!!document.querySelector('.hoje [data-fid=\"lp:%s\"] .ic-fam svg')" % ID), 'Hoje mostra o item do Bilu como a fazer, com ícone')
-    pg.screenshot(path=str(prints / 'tv-hoje-bilu-1280x720.png'))
-    pg.evaluate("location.hash='#/familia'"); pg.wait_for_selector('.item.dupla'); pg.wait_for_timeout(300)
-    pg.screenshot(path=str(prints / 'tv-familia-1280x720.png'))
-    # gerenciar: ícone selecionável
-    pg.evaluate("location.hash='#/gerenciar/familia'"); pg.wait_for_selector('.form-linha'); pg.wait_for_timeout(300)
-    check(pg.evaluate("Array.prototype.some.call(document.querySelectorAll('select option'), function(o){return o.value==='casa-de-cachorro'})"), 'Gerenciar oferece o ícone casa-de-cachorro')
-    ctx.close()
-    # perfil antigo (dados v1 sem o item e sem lista de migrações)
-    ctx, pg, erros = novo_ctx(b, 1280, 720)
-    pg.goto(base + 'index.html#/rotina'); pg.wait_for_selector('.habito'); pg.wait_for_timeout(300)
-    pg.evaluate("""(function(){ var s = PS.store.get(); s.versao = 1; s.lembretes = s.lembretes.filter(function(l){return l.id !== '%s'}); s.tarefas.push({id:'minha-tarefa',lista:'Casa',titulo:'Tarefa antiga do usuário',prio:'baixa',vence:'',feita:false});
-      localStorage.setItem('painelsala.dados', JSON.stringify(s)); localStorage.removeItem('painelsala.migracoes'); })()""" % ID)
-    pg.reload(); pg.wait_for_selector('.habito'); pg.wait_for_timeout(400)
-    check(pg.evaluate("PS.store.get().lembretes.filter(function(l){return l.id==='%s'}).length" % ID) == 1, 'perfil antigo: migração adiciona o lembrete do Bilu')
-    check(pg.evaluate("PS.store.get().tarefas.some(function(t){return t.id==='minha-tarefa'})"), 'perfil antigo: dados do usuário preservados')
-    pg.reload(); pg.wait_for_selector('.habito'); pg.wait_for_timeout(300)
-    check(pg.evaluate("PS.store.get().lembretes.filter(function(l){return l.id==='%s'}).length" % ID) == 1, 'migração idempotente (sem duplicar)')
-    pg.evaluate("PS.store.alterar(function(s){ s.lembretes = s.lembretes.filter(function(l){return l.id !== '%s'}); })" % ID)
-    pg.reload(); pg.wait_for_selector('.habito'); pg.wait_for_timeout(300)
-    check(pg.evaluate("PS.store.get().lembretes.filter(function(l){return l.id==='%s'}).length" % ID) == 0, 'item apagado não reaparece')
-    check(pg.evaluate("JSON.parse(localStorage.getItem('painelsala.migracoes')).indexOf('2026-10-bilu-casinha') >= 0"), 'lista de migrações aplicadas gravada')
+    pg.goto(base + 'index.html#/'); pg.wait_for_selector('.hoje'); pg.wait_for_timeout(300)
+    pg.evaluate("""(function(){ var s = PS.store.get(); s.versao = 1; s.lembretes = [{id:'lembrete-bilu-casinha',titulo:'Comprar casinha maior para o Bilu',dia:0}]; s.habitos = [{id:'h1',nome:'Alongar'}]; s.checks = {};
+      s.tarefas.push({id:'minha-tarefa',lista:'Casa',titulo:'Tarefa antiga do usuário',prio:'baixa',vence:'',feita:false});
+      localStorage.setItem('painelsala.dados', JSON.stringify(s)); localStorage.setItem('painelsala.migracoes', JSON.stringify(['2026-10-bilu-casinha'])); })()""")
+    pg.reload(); pg.wait_for_selector('.hoje'); pg.wait_for_timeout(400)
+    st = pg.evaluate("(function(){var s=PS.store.get();return [!!s.lembretes, !!s.habitos, s.tarefas.some(function(t){return t.id==='minha-tarefa'})]})()")
+    check(st == [False, False, True], 'perfil antigo: lembretes e hábitos descartados, dados do usuário preservados %s' % st)
+    check('Bilu' not in pg.inner_text('main'), 'perfil antigo: Bilu não aparece no Hoje')
+    pg.evaluate("location.hash='#/contas'"); pg.wait_for_selector('.conta-linha, .vazio'); pg.wait_for_timeout(300)
+    pg.screenshot(path=str(prints / 'tv-contas-1280x720.png'))
+    pg.evaluate("location.hash='#/gerenciar/contas'"); pg.wait_for_selector('.form-linha'); pg.wait_for_timeout(300)
+    check(pg.evaluate("Array.prototype.some.call(document.querySelectorAll('select option'), function(o){return o.value==='casa-de-cachorro'})"), 'Gerenciar oferece o ícone casa-de-cachorro nas contas')
     check(not erros, 'sem erros de console (perfil antigo) %s' % erros[:3])
     ctx.close()
 
     print('== Celular 360x740 (gerenciar) ==')
     ctx, pg, erros = novo_ctx(b, 360, 740)
     pg.goto(base + 'index.html#/gerenciar'); pg.wait_for_selector('.form-linha'); pg.wait_for_timeout(400)
-    for r in ['gerenciar', 'gerenciar/habitos', 'gerenciar/tarefas', 'gerenciar/agenda', 'gerenciar/familia', 'gerenciar/links', 'gerenciar/backup', '', 'rotina', 'relaxar']:
+    for r in ['gerenciar', 'gerenciar/tarefas', 'gerenciar/agenda', 'gerenciar/contas', 'gerenciar/links', 'gerenciar/backup', '', 'compras', 'contas', 'relaxar']:
         pg.evaluate("location.hash='#/%s'" % r); pg.wait_for_timeout(350)
         d = pg.evaluate("document.documentElement.scrollWidth - innerWidth")
         check(d <= 0, '[360] #/%s sem rolagem horizontal (sobra %d)' % (r, d))
-        if r in ('gerenciar', 'gerenciar/familia'): pg.screenshot(path=str(prints / ('celular-%s-360.png' % r.replace('/', '-'))), full_page=False)
+        if r in ('gerenciar', 'gerenciar/contas'): pg.screenshot(path=str(prints / ('celular-%s-360.png' % r.replace('/', '-'))), full_page=False)
     check(not erros, '[360] sem erros %s' % erros[:3])
     ctx.close()
     b.close()

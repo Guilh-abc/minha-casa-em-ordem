@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Teste de tela: Família > Contas, tocar no cartão abre o detalhe com Editar; Marcar paga continua direto. Uso: python3 tools/teste-detalhe-conta.py [--chrome CAMINHO] [--prints PASTA]  byGui"""
+"""Teste de tela: Contas a pagar, tocar no cartão abre o detalhe com Editar; Marcar paga continua direto. Uso: python3 tools/teste-detalhe-conta.py [--chrome CAMINHO] [--prints PASTA]  byGui"""
 import argparse, functools, http.server, pathlib, socketserver, threading, sys
 from playwright.sync_api import sync_playwright
 raiz = pathlib.Path(__file__).resolve().parent.parent
@@ -14,12 +14,12 @@ def check(c, m): (ok if c else falhas).append(m); print(('  ok   ' if c else '  
 DADOS = """PS.store.alterar(function(s){var h=PS.u.hoje(),m=PS.u.ym(h),ant=PS.u.somaMes(m,-1),ant2=PS.u.somaMes(m,-2);
  var pg={};pg[ant]=PS.u.somaDias(h,-25);pg[ant2]=PS.u.somaDias(h,-55);var vs={};vs[ant]=118.4;
  s.contas=[{id:'cx',titulo:'Luz',mensal:true,anual:false,mes:0,dia:+PS.u.somaDias(h,3).slice(8),data:'',valor:120,paga:false,pagas:pg,valores:vs,desde:'',cat:'casa',dono:'casal',forma:'debito',obs:'Bradesco',cartaoRef:'',arquivada:false}];
- s.faturas=[];s.lembretes=[];},true);"""
+ s.faturas=[];},true);"""
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=a.chrome) if a.chrome else p.chromium.launch()
     for w, hh in [(390, 844), (1280, 800)]:
         pg = b.new_page(viewport={'width': w, 'height': hh}); erros = []; pg.on('pageerror', lambda e: erros.append(str(e)))
-        pg.goto(base + '#/'); pg.wait_for_timeout(700); pg.evaluate(DADOS); pg.evaluate("location.hash='#/familia'"); pg.wait_for_timeout(400)
+        pg.goto(base + '#/'); pg.wait_for_timeout(700); pg.evaluate(DADOS); pg.evaluate("location.hash='#/contas'"); pg.wait_for_timeout(400)
         pg.locator('[data-fid="fa:abertas"]').click(); pg.wait_for_timeout(250)
         card = pg.locator('[data-fid^="dc:cx"]').first
         bb = card.bounding_box()

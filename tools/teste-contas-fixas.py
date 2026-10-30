@@ -31,8 +31,8 @@ with sync_playwright() as p:
     # recarregar: não duplica nem recarrega
     pg.evaluate("location.hash='#/'"); pg.reload(); pg.wait_for_selector('.hoje'); pg.wait_for_timeout(400)
     check(pg.evaluate("PS.store.get().contas.length") == 11, 'reabrir não duplica')
-    # Família: aviso, selos, filtro
-    pg.evaluate("location.hash='#/familia'"); pg.wait_for_selector('.conta-linha'); pg.wait_for_timeout(300)
+    # Contas a pagar: aviso, selos, filtro
+    pg.evaluate("location.hash='#/contas'"); pg.wait_for_selector('.conta-linha'); pg.wait_for_timeout(300)
     check(pg.locator('.aviso-fixas').count() == 1 and pg.locator('[data-fid="fx:desfazer"]').count() == 1, 'aviso discreto com botão Desfazer')
     check(pg.locator('.conta-linha .selo.forma').count() >= 8, 'selo da forma de pagamento nas linhas')
     pg.select_option('[data-fid="fx:filtro"]', 'pix'); pg.wait_for_timeout(300)
@@ -51,7 +51,7 @@ with sync_playwright() as p:
     pg.evaluate("location.hash='#/'"); pg.reload(); pg.wait_for_selector('.hoje'); pg.wait_for_timeout(400)
     check(pg.evaluate("PS.store.get().contas.length") == 0, 'depois de desfazer, reabrir NÃO recarrega (carga única)')
     # botão idempotente
-    pg.evaluate("location.hash='#/familia'"); pg.wait_for_selector('[data-fid="fx:add"]')
+    pg.evaluate("location.hash='#/contas'"); pg.wait_for_selector('[data-fid="fx:add"]')
     pg.locator('[data-fid="fx:add"]').click(); pg.wait_for_timeout(400)
     check(pg.evaluate("PS.store.get().contas.length") == 11, 'botão "Adicionar contas fixas sugeridas" cria as 11')
     check(pg.locator('[data-fid="fx:add"]').count() == 0, 'botão some quando não falta nenhuma')
@@ -60,7 +60,7 @@ with sync_playwright() as p:
     pg.locator('[data-fid="fx:add"]').click(); pg.wait_for_timeout(300)
     check(pg.evaluate("PS.store.get().contas.length") == 11, 'só repõe a que faltava')
     # Gerenciar: editar forma/obs, arquivar, excluir
-    pg.evaluate("location.hash='#/gerenciar/familia'"); pg.wait_for_selector('[data-fid="fx:add-ger"]'); pg.wait_for_timeout(300)
+    pg.evaluate("location.hash='#/gerenciar/contas'"); pg.wait_for_selector('[data-fid="fx:add-ger"]'); pg.wait_for_timeout(300)
     check(pg.locator('[data-fid="fx:add-ger"]').is_disabled(), 'em Gerenciar o botão fica desativado quando já adicionadas')
     nomes = pg.evaluate("Array.prototype.map.call(document.querySelectorAll('.bloco'), function(b){return b.querySelector('h3')&&b.querySelector('h3').textContent})")
     check('Contas de casa' in nomes, 'bloco "Contas de casa" em Gerenciar')
