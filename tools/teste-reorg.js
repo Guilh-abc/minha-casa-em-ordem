@@ -3,7 +3,7 @@
 var assert = require('assert');
 global.window = global; global.PS = {};
 var mem = {}; global.localStorage = { getItem: function (k) { return k in mem ? mem[k] : null; }, setItem: function (k, v) { mem[k] = String(v); }, removeItem: function (k) { delete mem[k]; } };
-require('../js/util.js'); require('../js/icons.js'); require('../js/store.js'); require('../js/dominio.js'); require('../js/financeiro.js');
+require('../js/util.js'); require('../js/icons.js'); require('../js/repeticao.js'); require('../js/store.js'); require('../js/dominio.js'); require('../js/financeiro.js');
 var N = require('../js/sync-nucleo.js');
 var S = global.PS.store, D = global.PS.dom, F = global.PS.fin;
 var ok = 0, falhas = 0;
@@ -73,4 +73,15 @@ t('notificações de vencimento de contas continuam (lembretesPara)', function (
   var l = F.lembretesPara(s, HOJE, [3, 1, 0], {}, 9); assert.strictEqual(l.length, 1); assert.strictEqual(l[0].titulo.indexOf('Luz') >= 0, true);
 });
 
+secao('Repetir (dados antigos e novos)');
+t('dados antigos sem repetir continuam iguais', function () {
+  var s = S.sanear(JSON.parse(JSON.stringify(ANTIGO)));
+  assert.strictEqual(s.tarefas[0].repete, ''); assert.strictEqual(s.tarefas[0].ate, ''); assert.strictEqual(s.tarefas[0].vence, HOJE);
+});
+t('repetir e Até sobrevivem ao sanear; valor inválido vira Não repete; .ics nunca repete', function () {
+  var s = S.sanear({ app: 'minha-casa-em-ordem', listas: ['Casa'], tarefas: [{ id: 'a', titulo: 'Regar', vence: HOJE, repete: 'semanal', ate: '2026-12-31', gerou: 'b' }, { id: 'c', titulo: 'X', repete: 'toda hora' }],
+    compromissos: [{ id: 'v', titulo: 'Aniversario victor', data: '2026-03-15', repete: 'anual' }, { id: 'i', titulo: 'Ics', data: HOJE, fonte: 'ics', repete: 'diaria' }] });
+  assert.strictEqual(s.tarefas[0].repete, 'semanal'); assert.strictEqual(s.tarefas[0].ate, '2026-12-31'); assert.strictEqual(s.tarefas[0].gerou, 'b'); assert.strictEqual(s.tarefas[1].repete, '');
+  assert.strictEqual(s.compromissos[0].repete, 'anual'); assert.strictEqual(s.compromissos[1].repete, '');
+});
 fila.then(function () { console.log('\n' + ok + ' ok, ' + falhas + ' falhas'); process.exit(falhas ? 1 : 0); });

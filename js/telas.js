@@ -49,13 +49,13 @@
 
     var comp = D.proximosCompromissos(s, ag, 7), nComp = comp.length;
     var listaComp = comp.slice(0, 3).map(function (c) {
-      return h('a', { class: 'item', href: '#/agenda', 'data-fid': 'cp:' + c.id },
+      return h('a', { class: 'item', href: '#/agenda', 'data-fid': 'cp:' + c.id + (c.origem ? '@' + c.data : '') },
         h('span', { class: 'hora' }, c.hora || 'Dia'), h('span', { class: 't' }, c.titulo, nada()), h('span', { class: 'meta' }, c.data === hoje ? 'hoje' : U.dataCurta(c.data).split(',')[0]));
     });
     var tars = D.itensDoDia(s, hoje), nT = tars.length;
     var listaT = tars.slice(0, 2).map(function (it) {
       var t = it.t;
-      return h('button', { class: 'item', type: 'button', 'data-fid': 'tr:' + t.id, onclick: function () { S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === t.id) x.feita = true; }); }); } },
+      return h('button', { class: 'item', type: 'button', 'data-fid': 'tr:' + t.id, onclick: function () { S.alterar(function (st) { st.tarefas.slice().forEach(function (x) { if (x.id === t.id) PS.rep.concluirTarefa(st.tarefas, x, U.hoje(), U.uid); }); }); } },
         caixa(false), h('span', { class: 't' }, t.titulo, nada()));
     });
     var frase = D.fraseDoDia(s, hoje);
@@ -75,7 +75,7 @@
   var TODOS = '__todos', modoTarefas = 'lista';
   function seloPrio(p) { return selo(p === 'alta' ? 'perigo' : p === 'media' ? 'aviso' : 'neutro', p === 'alta' ? 'alerta' : 'estrela', D.ROTULO_PRIO[p]); }
   function tagLista(t) { return h('span', { class: 'tag-lista' }, t.lista); }
-  function alternarFeita(id) { S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === id) x.feita = !x.feita; }); }); }
+  function alternarFeita(id) { S.alterar(function (st) { st.tarefas.slice().forEach(function (x) { if (x.id === id) { if (x.feita) x.feita = false; else PS.rep.concluirTarefa(st.tarefas, x, U.hoje(), U.uid); } }); }); }
   function moverPara(id, col) {
     var ok = false, hoje = U.hoje();
     S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === id) ok = D.moverTarefa(x, col, hoje); }); });
@@ -146,7 +146,7 @@
     var y = +calMes.slice(0, 4), m = +calMes.slice(5, 7), nDias = U.diasNoMes(y, m);
     var primeiro = calMes + '-01', desloc = U.dowIso(primeiro); /* 0 = domingo */
     var porDia = {};
-    s.compromissos.forEach(function (c) { if (c.data && c.data.slice(0, 7) === calMes) (porDia[c.data] = porDia[c.data] || []).push(c); });
+    PS.rep.expandir(s.compromissos, calMes + '-01', calMes + '-31').forEach(function (c) { if (c.data && c.data.slice(0, 7) === calMes) (porDia[c.data] = porDia[c.data] || []).push(c); });
     function ir(n) { calMes = U.somaMes(calMes, n); calSel = U.dataNoMes(calMes, +calSel.slice(8, 10)); PS.redesenhar(); }
     var cab = U.DIAS_CURTOS.map(function (d) { return h('span', { class: 'cal-dow' }, d); });
     var celulas = [];
@@ -162,7 +162,7 @@
     var evs = D.ordenarCompromissos(porDia[calSel] || []);
     var lista = evs.length ? evs.map(function (c) {
       var passou = c.data === hoje && c.hora && (+c.hora.slice(0, 2) * 60 + +c.hora.slice(3)) < ag.h * 60 + ag.mi - 30;
-      return h('button', { class: 'item' + (passou ? ' passado' : ''), type: 'button', 'data-fid': 'cp:' + c.id, onclick: function () { detalheCompromisso(c); } },
+      return h('button', { class: 'item' + (passou ? ' passado' : ''), type: 'button', 'data-fid': 'cp:' + c.id + (c.origem ? '@' + c.data : ''), onclick: function () { detalheCompromisso(c); } },
         h('span', { class: 'hora' }, c.hora || 'Dia todo'), h('span', { class: 't' }, c.titulo, tagExemplo(c)), c.local ? h('span', { class: 'meta' }, [I('pin'), ' ' + c.local]) : null);
     }) : h('p', { class: 'vazio' }, 'Sem compromissos neste dia');
     return h('div', null,

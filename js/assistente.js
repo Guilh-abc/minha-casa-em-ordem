@@ -28,7 +28,7 @@
     l.push('TAREFAS PENDENTES:');
     tf.forEach(function (t) { l.push('- ' + t.titulo + ' [' + t.lista + ', prioridade ' + t.prio + (t.vence ? ', até ' + t.vence : '') + ']'); });
     if (!tf.length) l.push('- nenhuma');
-    var cp = (s.compromissos || []).filter(real).filter(function (c) { return c.data >= hoje && c.data <= fim; }).sort(function (a, b) { return (a.data + a.hora) < (b.data + b.hora) ? -1 : 1; }).slice(0, 40);
+    var cp = PS.rep.expandir(s.compromissos || [], hoje, fim).filter(real).filter(function (c) { return c.data >= hoje && c.data <= fim; }).sort(function (a, b) { return (a.data + a.hora) < (b.data + b.hora) ? -1 : 1; }).slice(0, 40);
     l.push('AGENDA (próximos 45 dias):');
     cp.forEach(function (c) { l.push('- ' + c.data + (c.hora ? ' ' + c.hora : '') + ': ' + c.titulo + (c.local ? ' (' + c.local + ')' : '')); });
     if (!cp.length) l.push('- nada marcado');
@@ -104,7 +104,7 @@
       var st = S.get(), ab = [];
       try { ab = PS.fin.listas(st, U.hoje()).abertas; } catch (e) { ab = []; }
       var ex = {}; (st.contas || []).forEach(function (c) { if (c.exemplo) ex[c.id] = 1; });
-      return { abertas: ab.filter(function (x) { return !ex[x.id]; }), compromissos: st.compromissos || [], tarefas: st.tarefas || [] };
+      return { abertas: ab.filter(function (x) { return !ex[x.id]; }), compromissos: PS.rep.expandir(st.compromissos || [], U.hoje(), U.somaDias(U.hoje(), 400)), tarefas: st.tarefas || [] };
     }
     function hojeTexto() { var hj = U.hoje(), am = U.somaDias(hj, 1); return U.DIAS[U.dowIso(hj)] + ', ' + hj.slice(8, 10) + '/' + hj.slice(5, 7) + '/' + hj.slice(0, 4) + ' (' + hj + '); amanhã é ' + U.DIAS[U.dowIso(am)] + ', ' + am.slice(8, 10) + '/' + am.slice(5, 7) + ' (' + am + ')'; }
     function responderLocal(txt) { conversa.push({ papel: 'assistant', texto: txt, local: true }); }

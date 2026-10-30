@@ -1,8 +1,8 @@
 /* Service worker simples: rede primeiro, cache como reserva (casca offline). Troque VERSAO a cada release (tools/versionar.sh faz isso). */
-var VERSAO = 'minha-casa-4779238';
+var VERSAO = 'minha-casa-cf57555';
 var ARQUIVOS = ['./', 'dados.json', 'manifest.webmanifest', 'assets/favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'css/tokens.css', 'css/base.css', 'css/app.css',
-  'js/util.js', 'js/cripto.js', 'js/sync-nucleo.js', 'js/sync.js', 'js/sincronizar.js', 'js/bloqueio.js', 'js/portal.js', 'js/icons.js', 'js/store.js', 'js/dominio.js', 'js/clima.js', 'js/ics.js', 'js/financeiro.js', 'js/financas-ui.js', 'js/lembretes.js', 'js/cartoes-calc.js', 'js/fatura-parser.js', 'js/graficos.js', 'js/pdf-importar.js', 'js/cartoes.js', 'js/nav.js', 'js/energia.js', 'js/telas.js', 'js/gerenciar.js', 'js/assistente-consultas.js', 'js/assistente.js', 'js/foto-nucleo.js', 'js/foto.js', 'js/app.js'];
+  'js/util.js', 'js/cripto.js', 'js/sync-nucleo.js', 'js/sync.js', 'js/sincronizar.js', 'js/bloqueio.js', 'js/portal.js', 'js/icons.js', 'js/store.js', 'js/repeticao.js', 'js/dominio.js', 'js/clima.js', 'js/ics.js', 'js/financeiro.js', 'js/financas-ui.js', 'js/lembretes.js', 'js/cartoes-calc.js', 'js/fatura-parser.js', 'js/graficos.js', 'js/pdf-importar.js', 'js/cartoes.js', 'js/nav.js', 'js/energia.js', 'js/telas.js', 'js/gerenciar.js', 'js/assistente-consultas.js', 'js/assistente.js', 'js/foto-nucleo.js', 'js/foto.js', 'js/app.js'];
 
 self.addEventListener('install', function (e) {
   /* pré-carrega a casca; NÃO guarda resposta redirecionada/de erro (ex.: tela de login quando a sessão expirou) */

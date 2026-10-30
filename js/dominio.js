@@ -49,7 +49,7 @@
   /* próximos compromissos a partir de agora (tolera 30min de atraso) */
   function proximosCompromissos(s, ag, dias) {
     var lim = U.somaDias(ag.iso, dias);
-    return ordenarCompromissos(s.compromissos.filter(function (c) {
+    return ordenarCompromissos(PS.rep.expandir(s.compromissos, ag.iso, lim).filter(function (c) {
       if (c.data > lim) return false;
       if (c.data > ag.iso) return true;
       if (c.data < ag.iso) return false;

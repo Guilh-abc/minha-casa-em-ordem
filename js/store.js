@@ -63,10 +63,10 @@
     s.listas = arr(o.listas).slice(0, 12).map(function (x) { return str(typeof x === 'string' ? x : (x && x.nome), 30); }).filter(Boolean);
     if (!s.listas.length) s.listas = ['Casa', 'Trabalho', 'Maria Alice'];
     s.tarefas = arr(o.tarefas).slice(0, 400).map(function (x) {
-      return { id: id(x), lista: str(x.lista, 30) || s.listas[0], titulo: str(x.titulo, 120) || 'Tarefa', prio: PRIORIDADES.indexOf(x.prio) >= 0 ? x.prio : 'media', vence: U.dataValida(x.vence) ? x.vence : '', feita: !!x.feita, dono: donoOk(x.dono), exemplo: !!x.exemplo };
+      return { id: id(x), lista: str(x.lista, 30) || s.listas[0], titulo: str(x.titulo, 120) || 'Tarefa', prio: PRIORIDADES.indexOf(x.prio) >= 0 ? x.prio : 'media', vence: U.dataValida(x.vence) ? x.vence : '', feita: !!x.feita, dono: donoOk(x.dono), repete: PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '', gerou: str(x.gerou, 40), base: U.dataValida(x.base) ? x.base : '', exemplo: !!x.exemplo };
     });
     s.compromissos = arr(o.compromissos).slice(0, 600).filter(function (x) { return U.dataValida(x.data); }).map(function (x) {
-      return { id: id(x), titulo: str(x.titulo, 120) || 'Compromisso', data: x.data, hora: U.horaValida(x.hora) ? x.hora : '', local: str(x.local, 80), fonte: x.fonte === 'ics' ? 'ics' : 'manual', dono: donoOk(x.dono), exemplo: !!x.exemplo };
+      return { id: id(x), titulo: str(x.titulo, 120) || 'Compromisso', data: x.data, hora: U.horaValida(x.hora) ? x.hora : '', local: str(x.local, 80), fonte: x.fonte === 'ics' ? 'ics' : 'manual', dono: donoOk(x.dono), exemplo: !!x.exemplo, repete: x.fonte === 'ics' ? '' : PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '' };
     });
     s.contas = arr(o.contas).slice(0, 80).map(function (x) {
       /* pagas[mês] = true (pago, sem data) ou 'AAAA-MM-DD' (data do pagamento, manual) */

@@ -156,17 +156,19 @@
     tarefas: function () {
       var w = h('div'); w.appendChild(editorListas());
       w.appendChild(h('div', { class: 'bloco' }, h('h3', null, 'Tarefas'), editor({ colecao: 'tarefas', rotuloAdd: 'Nova tarefa', ordenar: function (l) { return PS.dom.ordenarTarefas(l); },
-        novo: function (s) { return { id: U.uid(), lista: s.listas[0], titulo: '', prio: 'media', vence: '', feita: false }; },
+        novo: function (s) { return { id: U.uid(), lista: s.listas[0], titulo: '', prio: 'media', vence: '', feita: false, repete: '', ate: '' }; },
         campos: [{ k: 'titulo', rotulo: 'Tarefa', max: 120 }, { k: 'lista', rotulo: 'Lista', tipo: 'select', opcoes: nomesListas }, { k: 'prio', rotulo: 'Prioridade', tipo: 'select', opcoes: function () { return PRIO; } },
-          { k: 'vence', rotulo: 'Vence em', tipo: 'date' }, { k: 'feita', rotulo: 'Concluída', tipo: 'check' }] })));
+          { k: 'vence', rotulo: 'Vence em', tipo: 'date' }, { k: 'repete', rotulo: 'Repetir', tipo: 'select', get: function (x) { return x.repete || ''; }, opcoes: function () { return PS.rep.OPCOES; }, redesenha: true }, { k: 'ate', rotulo: 'Até (opcional)', tipo: 'date', get: function (x) { return x.ate || ''; }, mostrar: function (t) { return !!t.repete; } },
+          { k: 'feita', rotulo: 'Concluída', tipo: 'check', set: function (t, v) { if (v && !t.feita) PS.rep.concluirTarefa(S.get().tarefas, t, U.hoje(), U.uid); else t.feita = !!v; }, redesenha: true }] })));
       return w;
     },
     agenda: function () {
       var w = h('div'), res = h('p', { class: 'nota', 'aria-live': 'polite' });
       var sub = h('input', { type: 'checkbox', checked: true });
       var ed = editor({ colecao: 'compromissos', rotuloAdd: 'Novo compromisso', ordenar: function (l) { return PS.dom.ordenarCompromissos(l); },
-        novo: function () { return { id: U.uid(), titulo: '', data: U.hoje(), hora: '', local: '', fonte: 'manual' }; },
-        campos: [{ k: 'titulo', rotulo: 'Compromisso', max: 120 }, { k: 'data', rotulo: 'Data', tipo: 'date' }, { k: 'hora', rotulo: 'Hora', tipo: 'time' }, { k: 'local', rotulo: 'Local', max: 80 }] });
+        novo: function () { return { id: U.uid(), titulo: '', data: U.hoje(), hora: '', local: '', fonte: 'manual', repete: '', ate: '' }; },
+        campos: [{ k: 'titulo', rotulo: 'Compromisso', max: 120 }, { k: 'data', rotulo: 'Data', tipo: 'date' }, { k: 'hora', rotulo: 'Hora', tipo: 'time' }, { k: 'local', rotulo: 'Local', max: 80 },
+          { k: 'repete', rotulo: 'Repetir', tipo: 'select', get: function (x) { return x.repete || ''; }, opcoes: function () { return PS.rep.OPCOES; }, redesenha: true, mostrar: function (c) { return c.fonte !== 'ics'; } }, { k: 'ate', rotulo: 'Até (opcional)', tipo: 'date', get: function (x) { return x.ate || ''; }, mostrar: function (c) { return !!c.repete && c.fonte !== 'ics'; } }] });
       w.appendChild(h('div', { class: 'form-linha' }, h('h3', null, 'Importar arquivo .ics'),
         h('p', { class: 'nota' }, 'Exporte sua agenda (Google Agenda: Configurações → Importar e exportar) e escolha o arquivo .ics. Lê os próximos 120 dias; repetições simples (diária, semanal, mensal, anual) são expandidas. Sem login, sem nuvem.'),
         h('label', { class: 'campo marcar' }, sub, h('span', null, 'Substituir compromissos importados antes')),
