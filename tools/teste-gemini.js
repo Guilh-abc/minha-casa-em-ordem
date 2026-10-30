@@ -32,6 +32,7 @@ t('limpa marcador', G.finalizar('Ok <<SUGESTAO tipo=tarefa>>', p).texto.indexOf(
 t('memória validada conta como fonte', G.finalizar('Amanhã: Futebol às 09:00.', G.permitido([{ r: 'model', t: 'Amanhã você tem Futebol, às 09:00' }], H)).fiel);
 t('valor da sugestão em R$', G.finalizar('Preparei a conta do gás de R$ 120,00 para 15/11.', G.permitido([{ tipo: 'conta', titulo: 'Gás', vence: '2026-11-15', valor: 120 }], H)).fiel);
 t('atrasadas ignora de/ate=hoje', G.executar('listar_contas', { status: 'atrasadas', de: H, ate: H }, d, H).total === 1);
+t('valor em texto', G.finalizar('Gás de R$ 120,00.', G.permitido([{ valor: '120' }], H)).fiel);
 t('data com ano 15/11/2026', G.finalizar('Conta para 15/11/2026.', G.permitido([{ vence: '2026-11-15' }], H)).fiel);
 var m = []; for (var i = 0; i < 15; i++) { m.push({ papel: 'user', texto: 'q' + i }); m.push({ papel: 'assistant', texto: 'r' + i }); }
 var mm = G.memoria(m); t('memória: 10 trocas', mm.length === 20 && mm[0].t === 'q5' && mm[19].r === 'model');
