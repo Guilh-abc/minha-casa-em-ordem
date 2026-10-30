@@ -1,4 +1,4 @@
-/* Regras de negócio puras: contas a vencer, lembretes, compromissos, tarefas do dia, frase do dia. */
+/* Regras de negócio puras: contas a vencer, compromissos, tarefas do dia, frase do dia. */
 (function (g) {
   'use strict';
   var PS = g.PS = g.PS || {};
@@ -16,16 +16,7 @@
     });
     return out;
   }
-  function ocorrenciasLembrete(l, hoje) {
-    if (!l.dia) return [{ lembrete: l, data: '', chave: 'pendente', feito: !!l.feito }];       /* pendência sem data */
-    var m0 = U.ym(hoje), out = [];
-    [0, 1].forEach(function (i) {
-      var m = U.somaMes(m0, i);
-      out.push({ lembrete: l, data: U.dataNoMes(m, l.dia), chave: m, feito: !!(l.feitos && l.feitos[m]) });
-    });
-    return out;
-  }
-  /* ocorrência exibida nas telas de Família: a do mês; se já resolvida e já passou, a do próximo mês */
+  /* ocorrência exibida na tela Contas a pagar: a do mês; se já resolvida e já passou, a do próximo mês */
   function ocorrenciaVisivel(lista, hoje) {
     var a = lista[0], b = lista[1];
     if (!b) return a;
@@ -38,7 +29,7 @@
     return n < 0 ? 'atrasado' : (n <= 3 ? 'aviso' : 'normal');
   }
 
-  /* contas + lembretes que vencem em até N dias (inclui atrasados do mês atual, não resolvidos) */
+  /* contas que vencem em até N dias (inclui atrasados do mês atual, não resolvidos) */
   function aVencer(s, hoje, dias) {
     var lim = U.somaDias(hoje, dias), out = [];
     s.contas.forEach(function (c) {
@@ -46,15 +37,6 @@
         if (o.paga) return;
         if (o.data <= lim && (o.data >= hoje || c.mensal && U.ym(o.data) === U.ym(hoje) || !c.mensal)) {
           out.push({ tipo: 'conta', titulo: c.titulo, icone: c.icone, data: o.data, valor: c.valor, ref: o, estado: estadoVenc(o.data, hoje, false) });
-        }
-      });
-    });
-        s.lembretes.forEach(function (l) {
-      if (!l.dia) return;                                                     /* pendências sem data não "vencem" */
-      ocorrenciasLembrete(l, hoje).forEach(function (o) {
-        if (o.feito) return;
-        if (o.data <= lim && (o.data >= hoje || U.ym(o.data) === U.ym(hoje))) {
-          out.push({ tipo: 'lembrete', titulo: l.titulo, icone: l.icone, obs: l.obs, data: o.data, ref: o, estado: estadoVenc(o.data, hoje, false) });
         }
       });
     });
@@ -110,16 +92,9 @@
   function tarefasDoDia(s, hoje) {
     return ordenarTarefas(s.tarefas.filter(function (t) { return !t.feita && ((t.vence && t.vence <= hoje) || (!t.vence && t.prio === 'alta')); }));
   }
-  /* pendências sem data (lembretes com dia 0) ainda não feitas */
-  function pendencias(s) {
-    return s.lembretes.filter(function (l) { return !l.dia && !l.feito; }).sort(function (a, b) { return PESO[a.prio] - PESO[b.prio]; });
-  }
-  /* a fazer hoje = tarefas do dia + pendências de prioridade alta (lembretes sem data), ordenadas por prioridade (lembrete primeiro no empate) */
+  /* a fazer hoje = tarefas do dia (os lembretes saíram do app) */
   function itensDoDia(s, hoje) {
-    var out = [];
-    pendencias(s).filter(function (l) { return l.prio === 'alta'; }).forEach(function (l, i) { out.push({ tipo: 'lembrete', l: l, peso: 0, ord: i }); });
-    tarefasDoDia(s, hoje).forEach(function (t, i) { out.push({ tipo: 'tarefa', t: t, peso: PESO[t.prio], ord: 100 + i }); });
-    return out.sort(function (a, b) { return a.peso - b.peso || a.ord - b.ord; });
+    return tarefasDoDia(s, hoje).map(function (t) { return { tipo: 'tarefa', t: t }; });
   }
   function fraseDoDia(s, hoje) {
     var l = s.foco; if (!l.length) return '';
@@ -133,5 +108,5 @@
   }
   function saudacao(h) { return h < 5 ? 'Boa madrugada' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
 
-  PS.dom = { pendencias: pendencias, itensDoDia: itensDoDia, ocorrenciaVisivel: ocorrenciaVisivel, ocorrenciasConta: ocorrenciasConta, ocorrenciasLembrete: ocorrenciasLembrete, aVencer: aVencer, ordenarCompromissos: ordenarCompromissos, proximosCompromissos: proximosCompromissos, ordenarTarefas: ordenarTarefas, tarefasDoDia: tarefasDoDia, fraseDoDia: fraseDoDia, listasComTarefas: listasComTarefas, saudacao: saudacao, ROTULO_PRIO: ROTULO_PRIO, COLUNAS_PRAZO: COLUNAS, fimDaSemana: fimDaSemana, colunaPrazo: colunaPrazo, quadroPrazo: quadroPrazo, dataDaColuna: dataDaColuna, moverTarefa: moverTarefa };
+  PS.dom = { itensDoDia: itensDoDia, ocorrenciaVisivel: ocorrenciaVisivel, ocorrenciasConta: ocorrenciasConta, aVencer: aVencer, ordenarCompromissos: ordenarCompromissos, proximosCompromissos: proximosCompromissos, ordenarTarefas: ordenarTarefas, tarefasDoDia: tarefasDoDia, fraseDoDia: fraseDoDia, listasComTarefas: listasComTarefas, saudacao: saudacao, ROTULO_PRIO: ROTULO_PRIO, COLUNAS_PRAZO: COLUNAS, fimDaSemana: fimDaSemana, colunaPrazo: colunaPrazo, quadroPrazo: quadroPrazo, dataDaColuna: dataDaColuna, moverTarefa: moverTarefa };
 })(window);
