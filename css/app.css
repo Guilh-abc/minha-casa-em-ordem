@@ -521,3 +521,25 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .fs-estrela { min-width: 44px; min-height: 44px; background: transparent; border: 0; font-size: 1.35rem; line-height: 1; color: var(--c-linha); cursor: pointer; }
 .fs-estrela.on { color: var(--c-magenta); }
 .fs-dupla { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+/* Descobrir (arrastar) */
+.ds-cartao { position: relative; background: var(--c-superficie-2); border-radius: var(--raio-g); overflow: hidden; touch-action: pan-y; user-select: none; transition: transform .18s ease; max-width: 26rem; margin: 0 auto; }
+.ds-cartao.arrastando { transition: none; }
+.ds-poster { position: relative; aspect-ratio: 2 / 3; max-height: 46vh; width: 100%; background: #000; display: flex; justify-content: center; }
+.ds-poster img { height: 100%; width: 100%; object-fit: cover; object-position: top; pointer-events: none; }
+.ds-selo { position: absolute; top: 1rem; padding: .2rem .6rem; border: 3px solid; border-radius: .4rem; font-weight: 800; font-size: 1.1rem; opacity: 0; background: rgba(0,0,0,.45); }
+.ds-selo.quero { left: 1rem; color: var(--c-ok); transform: rotate(-12deg); } .ds-selo.nao { right: 1rem; color: var(--c-perigo); transform: rotate(12deg); }
+.ds-cartao[data-dir="quero"] .ds-selo.quero, .ds-cartao[data-dir="nao"] .ds-selo.nao { opacity: 1; }
+.ds-info { padding: .6rem .75rem .75rem; display: flex; flex-direction: column; gap: .3rem; }
+.ds-titulo { font-size: 1.05rem; font-weight: 800; }
+.ds-meta, .ds-linha { margin: 0; font-size: .68rem; color: var(--c-texto-2); }
+.ds-linha span { font-weight: 700; color: var(--c-texto); }
+.ds-motivo { margin: 0; font-size: .7rem; font-weight: 700; color: var(--c-magenta-claro); display: flex; gap: .3rem; align-items: center; }
+.ds-motivo .ic { width: .9em; height: .9em; flex: 0 0 auto; }
+.ds-sinopse { margin: 0; font-size: .7rem; line-height: 1.4; }
+.ds-botoes { display: flex; justify-content: center; align-items: center; gap: .7rem; margin: .7rem 0 .3rem; flex-wrap: wrap; }
+.ds-bt { min-width: 52px; min-height: 52px; border-radius: 99px; border: 2px solid var(--c-linha); background: var(--c-superficie-2); display: inline-flex; align-items: center; justify-content: center; gap: .3rem; font-weight: 700; font-size: .72rem; padding: 0 .9rem; }
+.ds-bt .ic { width: 1.3rem; height: 1.3rem; }
+.ds-bt.nao { color: var(--c-perigo); border-color: var(--c-perigo); } .ds-bt.quero { color: #fff; background: var(--c-magenta); border-color: var(--c-magenta); } .ds-bt.visto { color: var(--c-ok); border-color: var(--c-ok); }
+.ds-bt:disabled { opacity: .4; }
+.ds-tmdb { font-size: .58rem; color: var(--c-texto-2); text-align: center; margin: .4rem 0 0; } .ds-tmdb a { color: var(--c-magenta-claro); }
+@media (prefers-reduced-motion: reduce) { .ds-cartao { transition: none; } }

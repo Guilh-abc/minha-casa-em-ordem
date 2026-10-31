@@ -123,7 +123,8 @@
     s.filmes = arr(o.filmes).slice(0, 500).map(function (x) {
       var st = ['sugestao', 'quero', 'visto', 'nao'].indexOf(x.status) >= 0 ? x.status : 'sugestao';
       return { id: id(x), titulo: str(x.titulo, 100) || 'Título', ano: x.ano ? Math.round(num(x.ano, 1880, 2100, 0)) || null : null, tipo: x.tipo === 'serie' ? 'serie' : 'filme',
-        motivo: str(x.motivo, 200), status: st, data: iso(x.data), notaG: nota5(x.notaG), notaE: nota5(x.notaE), coment: str(x.coment, 200), atualizado: str(x.atualizado, 30) };
+        motivo: str(x.motivo, 200), status: st, data: iso(x.data), notaG: nota5(x.notaG), notaE: nota5(x.notaE), coment: str(x.coment, 200), atualizado: str(x.atualizado, 30),
+        tmdb: x.tmdb ? Math.round(num(x.tmdb, 1, 1e9, 0)) || null : null, tm: x.tm === 'tv' ? 'tv' : (x.tm === 'movie' ? 'movie' : ''), poster: /^\/[A-Za-z0-9._-]{1,80}$/.test(x.poster || '') ? x.poster : '' };
     });
     /* lembretes, hábitos (rotina) e checks foram removidos do app: backups antigos importam e essas partes são descartadas */
     return s;

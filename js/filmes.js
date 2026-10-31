@@ -4,18 +4,18 @@
   'use strict';
   var PS = global.PS, U = PS.u, h = U.h, S = PS.store, I = PS.icone || function () { return null; };
   var SEMENTES = [
-    { id: 'fs-sonho-liberdade', titulo: 'Um Sonho de Liberdade', ano: 1994, tipo: 'filme', motivo: 'Mesmo diretor de À Espera de um Milagre (Frank Darabont) e também baseado em Stephen King.' },
-    { id: 'fs-nevoeiro', titulo: 'O Nevoeiro', ano: 2007, tipo: 'filme', motivo: 'De Frank Darabont, com suspense e clima de catástrofe.' },
-    { id: 'fs-insonia', titulo: 'Insônia', ano: 2002, tipo: 'filme', motivo: 'Robin Williams num papel sombrio, como em Retratos de uma Obsessão.' },
-    { id: 'fs-impossivel', titulo: 'O Impossível', ano: 2012, tipo: 'filme', motivo: 'O tsunami de 2004: desastre natural e história real.' },
-    { id: 'fs-suspeitos', titulo: 'Os Suspeitos', ano: 2013, tipo: 'filme', motivo: 'Suspense pesado com grandes atuações.' },
-    { id: 'fs-capitao-phillips', titulo: 'Capitão Phillips', ano: 2013, tipo: 'filme', motivo: 'História real, com Tom Hanks num sequestro em alto-mar.' },
-    { id: 'fs-apollo-13', titulo: 'Apollo 13', ano: 1995, tipo: 'filme', motivo: 'Missão espacial real que dá errado: ficção científica com pé no chão.' },
-    { id: 'fs-contato', titulo: 'Contato', ano: 1997, tipo: 'filme', motivo: 'Ficção científica inteligente, com Jodie Foster.' },
-    { id: 'fs-genio-indomavel', titulo: 'Gênio Indomável', ano: 1997, tipo: 'filme', motivo: 'Grandes atuações, com Robin Williams premiado.' },
-    { id: 'fs-sully', titulo: 'Sully: O Herói do Rio Hudson', ano: 2016, tipo: 'filme', motivo: 'História real com Tom Hanks.', status: 'visto', coment: 'Muito bom' }
+    { id: 'fs-sonho-liberdade', tmdb: 278, tm: 'movie', titulo: 'Um Sonho de Liberdade', ano: 1994, tipo: 'filme', motivo: 'Mesmo diretor de À Espera de um Milagre (Frank Darabont) e também baseado em Stephen King.' },
+    { id: 'fs-nevoeiro', tmdb: 5876, tm: 'movie', titulo: 'O Nevoeiro', ano: 2007, tipo: 'filme', motivo: 'De Frank Darabont, com suspense e clima de catástrofe.' },
+    { id: 'fs-insonia', tmdb: 320, tm: 'movie', titulo: 'Insônia', ano: 2002, tipo: 'filme', motivo: 'Robin Williams num papel sombrio, como em Retratos de uma Obsessão.' },
+    { id: 'fs-impossivel', tmdb: 80278, tm: 'movie', titulo: 'O Impossível', ano: 2012, tipo: 'filme', motivo: 'O tsunami de 2004: desastre natural e história real.' },
+    { id: 'fs-suspeitos', tmdb: 146233, tm: 'movie', titulo: 'Os Suspeitos', ano: 2013, tipo: 'filme', motivo: 'Suspense pesado com grandes atuações.' },
+    { id: 'fs-capitao-phillips', tmdb: 109424, tm: 'movie', titulo: 'Capitão Phillips', ano: 2013, tipo: 'filme', motivo: 'História real, com Tom Hanks num sequestro em alto-mar.' },
+    { id: 'fs-apollo-13', tmdb: 568, tm: 'movie', titulo: 'Apollo 13', ano: 1995, tipo: 'filme', motivo: 'Missão espacial real que dá errado: ficção científica com pé no chão.' },
+    { id: 'fs-contato', tmdb: 686, tm: 'movie', titulo: 'Contato', ano: 1997, tipo: 'filme', motivo: 'Ficção científica inteligente, com Jodie Foster.' },
+    { id: 'fs-genio-indomavel', tmdb: 489, tm: 'movie', titulo: 'Gênio Indomável', ano: 1997, tipo: 'filme', motivo: 'Grandes atuações, com Robin Williams premiado.' },
+    { id: 'fs-sully', tmdb: 363676, tm: 'movie', titulo: 'Sully: O Herói do Rio Hudson', ano: 2016, tipo: 'filme', motivo: 'História real com Tom Hanks.', status: 'visto', coment: 'Muito bom' }
   ];
-  var aba = 'sugestao', sorteado = null, abrirNovo = false, verDescartados = false;
+  var aba = 'descobrir', sorteado = null, abrirNovo = false, verDescartados = false;
 
   function agora() { return new Date().toISOString(); }
   function todos(s) {
@@ -23,7 +23,7 @@
     l.forEach(function (f) { tem[f.id] = 1; });
     SEMENTES.forEach(function (x) {
       if (tem[x.id]) return;
-      l.push({ id: x.id, titulo: x.titulo, ano: x.ano, tipo: x.tipo, motivo: x.motivo, status: x.status || 'sugestao', data: '', notaG: null, notaE: null, coment: x.coment || '', semente: true });
+      l.push({ id: x.id, titulo: x.titulo, ano: x.ano, tipo: x.tipo, motivo: x.motivo, status: x.status || 'sugestao', data: '', notaG: null, notaE: null, coment: x.coment || '', tmdb: x.tmdb, tm: x.tm, poster: '', semente: true });
     });
     return l;
   }
@@ -33,7 +33,7 @@
       if (!s.filmes) s.filmes = [];
       var x = null;
       s.filmes.forEach(function (y) { if (y.id === f.id) x = y; });
-      if (!x) { x = { id: f.id, titulo: f.titulo, ano: f.ano, tipo: f.tipo, motivo: f.motivo, status: f.status, data: f.data, notaG: f.notaG, notaE: f.notaE, coment: f.coment }; s.filmes.push(x); }
+      if (!x) { x = { id: f.id, titulo: f.titulo, ano: f.ano, tipo: f.tipo, motivo: f.motivo, status: f.status, data: f.data, notaG: f.notaG, notaE: f.notaE, coment: f.coment, tmdb: f.tmdb || null, tm: f.tm || '', poster: f.poster || '' }; s.filmes.push(x); }
       fn(x); x.atualizado = agora();
     }, silencioso);
   }
@@ -103,11 +103,13 @@
     function de(st) { return l.filter(function (f) { return f.status === st; }); }
     var sug = de('sugestao'), quero = de('quero'), vistos = de('visto'), nao = de('nao');
     vistos.sort(function (a, b) { return (b.data || '').localeCompare(a.data || ''); });
-    var abas = [['sugestao', 'Sugestões', sug.length], ['quero', 'Quero ver', quero.length], ['visto', 'Assistidos', vistos.length]].map(function (x) {
-      return h('button', { class: 'aba', type: 'button', role: 'tab', 'aria-selected': aba === x[0] ? 'true' : 'false', 'data-fid': 'fs:aba:' + x[0], onclick: function () { aba = x[0]; PS.redesenhar(); } }, x[1], h('small', null, String(x[2])));
+    var abas = [['descobrir', 'Descobrir', null], ['sugestao', 'Sugestões', sug.length], ['quero', 'Quero ver', quero.length], ['visto', 'Assistidos', vistos.length]].map(function (x) {
+      return h('button', { class: 'aba', type: 'button', role: 'tab', 'aria-selected': aba === x[0] ? 'true' : 'false', 'data-fid': 'fs:aba:' + x[0], onclick: function () { aba = x[0]; PS.redesenhar(); } }, x[1], x[2] == null ? null : h('small', null, String(x[2])));
     });
     var corpo;
-    if (aba === 'quero') {
+    if (aba === 'descobrir' && PS.descobrir) {
+      corpo = PS.descobrir.render({ todos: l, mudar: mudar, cfg: cfg });
+    } else if (aba === 'quero') {
       var sor = null; quero.forEach(function (f) { if (f.id === sorteado) sor = f; });
       corpo = [
         quero.length ? h('div', { class: 'acoes' }, botao('Sortear um', 'fs:sortear', function () {
@@ -132,7 +134,7 @@
       h('h2', null, I('filme'), h('span', null, 'Filmes e Séries')),
       h('p', { class: 'nota' }, 'Para escolher o que ver à noite. Sugestões pensadas no gosto de vocês: suspense com ação, desastres naturais, histórias reais, ficção científica e grandes atuações.'),
       h('div', { class: 'abas', role: 'tablist' }, abas),
-      abrirNovo ? formNovo() : h('div', { class: 'acoes', style: 'margin-top:0;margin-bottom:.5rem' }, botao('Adicionar título', 'fs:adicionar', function () { abrirNovo = true; PS.redesenhar(); })),
+      aba === 'descobrir' ? null : abrirNovo ? formNovo() : h('div', { class: 'acoes', style: 'margin-top:0;margin-bottom:.5rem' }, botao('Adicionar título', 'fs:adicionar', function () { abrirNovo = true; PS.redesenhar(); })),
       h('div', { class: 'fs-lista' }, corpo));
   }
 
@@ -141,5 +143,5 @@
     var orig = rel.render;
     rel.render = function (p) { var el = orig.call(this, p); try { el.appendChild(secao()); } catch (e) { console.error(e); } return el; };
   }
-  PS.filmes = { SEMENTES: SEMENTES, todos: todos };
+  PS.filmes = { SEMENTES: SEMENTES, todos: todos, mudar: mudar, irPara: function (a) { aba = a; } };
 })(window);

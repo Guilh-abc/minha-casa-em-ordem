@@ -40,7 +40,7 @@ function senhaFraca(s, email) {
 }
 
 /* ---------- respostas e cabeçalhos ---------- */
-var CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; " +
+var CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org; font-src 'self'; " +
   "connect-src 'self' " + SYNC_ORIGEM + " https://minha-casa-assistente.guilhermeromionetto.workers.dev https://api.open-meteo.com https://geocoding-api.open-meteo.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 function seguranca(h, tipo) {
   h.set('Content-Security-Policy', CSP); h.set('X-Content-Type-Options', 'nosniff'); h.set('Referrer-Policy', 'no-referrer'); h.set('X-Frame-Options', 'DENY');

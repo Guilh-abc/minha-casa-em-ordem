@@ -28,7 +28,7 @@ NOMES = {'': 'hoje'}
 
 def novo_ctx(b, w, h, **kw):
     ctx = b.new_context(viewport={'width': w, 'height': h}, accept_downloads=True, **kw)
-    pg = ctx.new_page(); erros = []
+    pg = ctx.new_page(); erros = []; pg.route('**/tmdb?**', lambda r: r.fulfill(status=200, content_type='application/json', body='{"results":[]}'))  # Descobrir: sem rede no teste
     pg.on('pageerror', lambda e: erros.append('pageerror: ' + str(e)))
     pg.on('console', lambda m: erros.append('console: ' + m.text) if m.type == 'error' and 'open-meteo' not in m.text.lower() and 'Failed to load resource' not in m.text else None)
     return ctx, pg, erros

@@ -58,7 +58,7 @@ async function ler(req, env, origem) {
 }
 function cors(origem) {
   var h = new Headers({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Vary': 'Origin' });
-  if (ORIGENS.indexOf(origem) >= 0) { h.set('Access-Control-Allow-Origin', origem); h.set('Access-Control-Allow-Methods', 'POST, OPTIONS'); h.set('Access-Control-Allow-Headers', 'Content-Type'); h.set('Access-Control-Max-Age', '600'); }
+  if (ORIGENS.indexOf(origem) >= 0) { h.set('Access-Control-Allow-Origin', origem); h.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); h.set('Access-Control-Allow-Headers', 'Content-Type'); h.set('Access-Control-Max-Age', '600'); }
   return h;
 }
 function resp(obj, st, origem) { return new Response(JSON.stringify(obj), { status: st, headers: cors(origem) }); }
@@ -263,13 +263,54 @@ async function lugares(req, env, origem) {
   if (!r.ok) return resp({ erro: 'O Google Maps recusou a busca (' + r.status + ').' }, 502, origem);
   return resp({ lugares: lerLugares(await r.json()), busca: texto || '' }, 200, origem);
 }
+/* /tmdb: proxy só leitura para a TMDB (chave em secret TMDB_API_KEY, nunca no front-end). Caminhos e parâmetros em lista fechada,
+   pt-BR e região BR, cache de 12 h no edge. Este produto usa a API da TMDB, mas não é endossado nem certificado por ela. */
+var TMDB = 'https://api.themoviedb.org/3/';
+var TMDB_CAMINHOS = [/^discover\/(movie|tv)$/, /^(movie|tv)\/\d{1,9}$/, /^(movie|tv)\/\d{1,9}\/(recommendations|similar|watch\/providers|credits)$/, /^search\/(movie|tv|multi)$/];
+var TMDB_PARAMS = ['page', 'query', 'with_genres', 'without_genres', 'sort_by', 'vote_count.gte', 'vote_average.gte', 'primary_release_date.gte', 'first_air_date.gte', 'with_keywords', 'append_to_response', 'year', 'include_adult'];
+export function tmdbUrl(caminho, q, chave) {
+  caminho = String(caminho || '').replace(/^\/+/, '');
+  if (!TMDB_CAMINHOS.some(function (r) { return r.test(caminho); })) return null;
+  var u = new URL(TMDB + caminho);
+  TMDB_PARAMS.forEach(function (k) { var v = q.get(k); if (v != null && v !== '' && v.length <= 200) u.searchParams.set(k, v); });
+  if (u.searchParams.get('append_to_response') && !/^(credits|watch\/providers)(,(credits|watch\/providers))?$/.test(u.searchParams.get('append_to_response'))) u.searchParams.delete('append_to_response');
+  u.searchParams.set('include_adult', 'false'); u.searchParams.set('language', 'pt-BR'); u.searchParams.set('region', 'BR'); u.searchParams.set('watch_region', 'BR');
+  if (chave) u.searchParams.set('api_key', chave);
+  return u;
+}
+async function tmdb(req, env, origem, url) {
+  if (!env.TMDB_API_KEY) return resp({ erro: 'Descobrir ainda não configurado.' }, 503, origem);
+  var semChave = tmdbUrl(url.searchParams.get('p'), url.searchParams, '');
+  if (!semChave) return resp({ erro: 'Consulta não permitida.' }, 400, origem);
+  var cache = typeof caches !== 'undefined' ? caches.default : null, chaveCache = new Request(semChave.toString());
+  if (cache) { var c = await cache.match(chaveCache); if (c) return new Response(c.body, { status: 200, headers: corsGet(origem, true) }); }
+  var lim = limitarTmdb(req.headers.get('CF-Connecting-IP') || 'x');
+  if (lim) return resp({ erro: lim }, 429, origem);
+  var r; try { r = await fetch(tmdbUrl(url.searchParams.get('p'), url.searchParams, env.TMDB_API_KEY).toString(), { headers: { Accept: 'application/json' } }); }
+  catch (e) { return resp({ erro: 'Não consegui falar com a TMDB.' }, 502, origem); }
+  if (!r.ok) return resp({ erro: 'A TMDB respondeu com erro (' + r.status + ').' }, r.status === 404 ? 404 : 502, origem);
+  var corpo = await r.text();
+  if (cache) { try { await cache.put(chaveCache, new Response(corpo, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=43200' } })); } catch (e) { /* ok */ } }
+  return new Response(corpo, { status: 200, headers: corsGet(origem, false) });
+}
+var tmdbIp = new Map(), tmdbDia = { d: '', n: 0 };
+function limitarTmdb(ip) {
+  var agora = Date.now(), hoje = new Date().toISOString().slice(0, 10);
+  if (tmdbDia.d !== hoje) { tmdbDia.d = hoje; tmdbDia.n = 0; tmdbIp.clear(); }
+  if (tmdbDia.n >= 8000) return 'Limite diário do Descobrir atingido. Tente amanhã.';
+  var l = (tmdbIp.get(ip) || []).filter(function (t) { return agora - t < JANELA; });
+  if (l.length >= 300) return 'Muitas consultas seguidas. Espere alguns minutos.';
+  l.push(agora); tmdbIp.set(ip, l); tmdbDia.n++; return '';
+}
+function corsGet(origem, doCache) { var h = cors(origem); h.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); h.set('Cache-Control', 'private, max-age=3600'); h.set('X-Cache', doCache ? 'HIT' : 'MISS'); return h; }
 export function config() { return { PARAMS: PARAMS, SISTEMA: SISTEMA }; }
 export default {
   async fetch(req, env) {
     var url = new URL(req.url), origem = req.headers.get('Origin') || '';
-    if (url.pathname === '/saude') return resp({ ok: true, modelo: MODELO, visao: MODELO_VISAO, foto: MODELO_FOTO, conversa: env.GEMINI_MODELO || GEMINI_PADRAO, gemini: !!env.GEMINI_API_KEY, lugares: !!env.PLACES_API_KEY }, 200, origem);
-    if (['/chat', '/foto', '/ler', '/conversa', '/lugares'].indexOf(url.pathname) < 0) return resp({ erro: 'Rota não encontrada.' }, 404, origem);
+    if (url.pathname === '/saude') return resp({ ok: true, modelo: MODELO, visao: MODELO_VISAO, foto: MODELO_FOTO, conversa: env.GEMINI_MODELO || GEMINI_PADRAO, gemini: !!env.GEMINI_API_KEY, lugares: !!env.PLACES_API_KEY, tmdb: !!env.TMDB_API_KEY }, 200, origem);
+    if (['/chat', '/foto', '/ler', '/conversa', '/lugares', '/tmdb'].indexOf(url.pathname) < 0) return resp({ erro: 'Rota não encontrada.' }, 404, origem);
     if (req.method === 'OPTIONS') return new Response(null, { status: ORIGENS.indexOf(origem) >= 0 ? 204 : 403, headers: cors(origem) });
+    if (url.pathname === '/tmdb') { if (ORIGENS.indexOf(origem) < 0) return resp({ erro: 'Origem não permitida.' }, 403, origem); if (req.method !== 'GET') return resp({ erro: 'Use GET.' }, 405, origem); return tmdb(req, env, origem, url); }
     if (req.method !== 'POST') return resp({ erro: 'Use POST.' }, 405, origem);
     if (ORIGENS.indexOf(origem) < 0) return resp({ erro: 'Origem não permitida.' }, 403, origem);
     if (url.pathname === '/conversa') return conversa(req, env, origem);

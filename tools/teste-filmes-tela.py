@@ -13,11 +13,12 @@ def check(c, m): (ok if c else falhas).append(m); print(('  ok   ' if c else '  
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=a.chrome) if a.chrome else p.chromium.launch()
     for w in (390, 1280):
-        pg = b.new_context(viewport={'width': w, 'height': 844}).new_page(); erros = []; pg.on('pageerror', lambda e: erros.append(str(e)))
+        pg = b.new_context(viewport={'width': w, 'height': 844}).new_page(); erros = []; pg.on('pageerror', lambda e: erros.append(str(e))); pg.route('**/tmdb?**', lambda r: r.fulfill(status=200, content_type='application/json', body='{"results":[]}'))
         pg.goto(base + '#/relaxar'); pg.wait_for_timeout(700)
         ar = pg.locator('[data-fid="fs:area"]'); check(ar.count() == 1, '%d área Filmes e Séries' % w)
+        pg.locator('[data-fid="fs:aba:sugestao"]').click()
         t = ar.inner_text(); check('Um Sonho de Liberdade' in t and '1994' in t and 'Darabont' in t, '%d sugestão com ano e motivo' % w)
-        check('Sugestões\n9' in t or 'Sugestões9' in t.replace('\n', ''), '%d 9 sugestões' % w)
+        check('Sugestões9' in t.replace('\n', ''), '%d 9 sugestões' % w)
         check('—' not in pg.locator('main').inner_text(), '%d sem travessão' % w)
         if w == 390: ar.evaluate('e => e.scrollIntoView()'); pg.wait_for_timeout(2500); pg.screenshot(path='/workspace/prints/filmes-390.png')
         bt = pg.locator('[data-fid="fs:quero:fs-contato"]'); check(bt.bounding_box()['height'] >= 44, '%d botão >=44px' % w)
