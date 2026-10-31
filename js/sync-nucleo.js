@@ -92,20 +92,23 @@
 
     function montarEnvio(meta, locais, chaves, limite) {
       var sujos = Object.keys(meta.itens).filter(function (k) { return !meta.itens[k].env; }).slice(0, limite);
-      var feitos = [];
+      var feitos = [], bytes = 0, cheio = false, MAX_LOTE = 380000;   /* o servidor aceita até 512 KB por envio */
       return sujos.reduce(function (p, k) {
         return p.then(function () {
+          if (cheio) return null;
           var m = meta.itens[k], pos = k.indexOf('|'), c = k.slice(0, pos), id = k.slice(pos + 1);
           var pO = m.o ? Promise.resolve(m.o) : cr.idOpaco(chaves, c, id).then(function (x) { m.o = x; return x; });
           return pO.then(function (op) {
             if (!m.vivo) { feitos.push({ k: k, h: m.h, t: m.t, mud: { c: c, i: op, t: m.t, a: 1, n: 0 } }); return null; }
             var loc = locais[k]; if (!loc) return null;
             return cr.cifrar(chaves, c, op, { i: id, d: loc.d }).then(function (txt) {
+              if (feitos.length && bytes + txt.length > MAX_LOTE) { cheio = true; return; }
+              bytes += txt.length;
               feitos.push({ k: k, h: m.h, t: m.t, mud: { c: c, i: op, t: m.t, a: 0, d: txt, n: m.n ? 1 : 0 } });
             });
           });
         });
-      }, Promise.resolve()).then(function () { return { feitos: feitos, restam: sujos.length >= limite }; });
+      }, Promise.resolve()).then(function () { return { feitos: feitos, restam: cheio || sujos.length >= limite }; });
     }
 
     function processar(meta, r, chaves, estado, rel, forcar) {

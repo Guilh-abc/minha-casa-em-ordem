@@ -102,6 +102,17 @@ with sync_playwright() as p:
         A.evaluate("PS.sync.sincronizarAgora()"); A.wait_for_timeout(2500)
         check(A.evaluate("PS.store.get().tarefas.some(function(t){return t.titulo.indexOf('%s tarefa dois')===0})" % SEG), 'A: edição de B chegou com "Sincronizar agora"')
 
+        # ---- compra grande (151 itens, como a nota WMS) e lista de compras chegam ao outro aparelho ----
+        B.evaluate("""(function(){PS.store.alterar(function(d){var it=[];for(var i=0;i<151;i++)it.push({nome:'RF.PRODUTO TESTE NUMERO '+i+' COM NOME LONGO',qtd:1,unit:9.99,total:9.99});
+          d.notas.push({id:'n-grande',loja:'WMS Supermercados do Brasil Ltda - Osasco, SP',data:'2026-10-30',desconto:7,total:1508.49,itens:it,origem:'foto'});
+          d.compras.push({id:'c-seg',nome:'Leite teste',comprado:false});});})()""")
+        B.evaluate("PS.sync.sincronizarAgora()"); B.wait_for_timeout(3500)
+        check(B.evaluate("PS.sync.estado().fase") == 'ok' and not B.evaluate("PS.sync.estado().erro"), 'B: envio da compra de 151 itens sem erro (%s)' % B.evaluate("PS.sync.estado().erro"))
+        A.evaluate("PS.sync.sincronizarAgora()"); A.wait_for_timeout(3500)
+        nA = A.evaluate("(PS.store.get().notas||[]).filter(function(n){return n.id==='n-grande'}).map(function(n){return n.itens.length})")
+        check(nA == [151], 'A: compra de 151 itens chegou (%s)' % nA)
+        check(A.evaluate("PS.store.get().compras.some(function(c){return c.id==='c-seg'})"), 'A: item da lista de compras chegou')
+
         # ---- edição em A chega em B automaticamente em até 60 s ----
         A.evaluate("""(function(s){PS.store.alterar(function(d){d.tarefas.push({id:'t-seg3',lista:d.listas[0],titulo:s+' tarefa tres (auto)',prio:'baixa',vence:'',feita:false,dono:'gui'}); });})""", SEG)
         t0 = time.time(); chegou = False
