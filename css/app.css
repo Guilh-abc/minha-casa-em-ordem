@@ -503,3 +503,21 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .nt-menu { padding: .5rem 0; }
 .nt-total-linha { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; margin: .5rem 0; }
 .nt-total-linha small { color: var(--c-texto-2); }
+/* Filmes e Séries (Relaxar) */
+.fs-lista { display: flex; flex-direction: column; gap: .5rem; }
+.fs-item { background: var(--c-superficie-2); border-radius: var(--raio); padding: .55rem .65rem; display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+.fs-item > strong { font-size: .85rem; font-weight: 800; overflow-wrap: anywhere; }
+.fs-info { color: var(--c-texto-2); font-size: .62rem; font-weight: 700; }
+.fs-motivo { margin: 0; }
+.fs-acoes { margin-top: .2rem; gap: .4rem; }
+.fs-acoes .btn { min-height: 44px; flex: 1 1 auto; }
+.fs-sorteado { border: 2px solid var(--c-magenta); }
+.fs-sorteado .selo { align-self: flex-start; }
+.fs-descartado { opacity: .7; }
+.fs-nota { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.fs-nota > span:first-child { font-size: .66rem; font-weight: 700; min-width: 4.5rem; }
+.fs-nota small { color: var(--c-texto-2); font-size: .6rem; }
+.fs-estrelas { display: inline-flex; }
+.fs-estrela { min-width: 44px; min-height: 44px; background: transparent; border: 0; font-size: 1.35rem; line-height: 1; color: var(--c-linha); cursor: pointer; }
+.fs-estrela.on { color: var(--c-magenta); }
+.fs-dupla { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }

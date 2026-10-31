@@ -18,7 +18,7 @@
   var PRIORIDADES = ['alta', 'media', 'baixa'];
 
   function vazio() {
-    return { app: 'minha-casa-em-ordem', versao: VERSAO, config: copia(PADRAO_CONFIG), listas: ['Casa', 'Trabalho', 'Maria Alice'], tarefas: [], compromissos: [], contas: [], links: [], foco: [], cartoes: [], faturas: [], lancs: [], regras: [], radios: [], passeios: [], programa: [], compras: [], notas: [] };
+    return { app: 'minha-casa-em-ordem', versao: VERSAO, config: copia(PADRAO_CONFIG), listas: ['Casa', 'Trabalho', 'Maria Alice'], tarefas: [], compromissos: [], contas: [], links: [], foco: [], cartoes: [], faturas: [], lancs: [], regras: [], radios: [], passeios: [], programa: [], compras: [], notas: [], filmes: [] };
   }
   function copia(o) { return JSON.parse(JSON.stringify(o)); }
   function str(v, n) { return U.limitar(v == null ? '' : String(v).replace(/[\u0000-\u001f]/g, ' '), n || 120).trim(); }
@@ -117,6 +117,13 @@
     s.notas = arr(o.notas).slice(0, 2000).map(function (x) {
       return { id: id(x), por: str(x.por, 60), loja: str(x.loja, 80), data: iso(x.data), desconto: vn(x.desconto), total: vn(x.total), estimado: !!x.estimado, origem: x.origem === 'foto' ? 'foto' : 'mao',
         itens: arr(x.itens).slice(0, 250).filter(function (i) { return i && typeof i === 'object'; }).map(function (i) { return { nome: str(i.nome, 80), qtd: vn(i.qtd), unit: vn(i.unit), total: vn(i.total) }; }) };
+    });
+    /* Filmes e Séries (área Relaxar). Sugestões padrão têm id fixo (fs-...), então não duplicam na sincronização. */
+    function nota5(v) { var n = Math.round(num(v, 0, 5, 0)); return n >= 1 ? n : null; }
+    s.filmes = arr(o.filmes).slice(0, 500).map(function (x) {
+      var st = ['sugestao', 'quero', 'visto', 'nao'].indexOf(x.status) >= 0 ? x.status : 'sugestao';
+      return { id: id(x), titulo: str(x.titulo, 100) || 'Título', ano: x.ano ? Math.round(num(x.ano, 1880, 2100, 0)) || null : null, tipo: x.tipo === 'serie' ? 'serie' : 'filme',
+        motivo: str(x.motivo, 200), status: st, data: iso(x.data), notaG: nota5(x.notaG), notaE: nota5(x.notaE), coment: str(x.coment, 200), atualizado: str(x.atualizado, 30) };
     });
     /* lembretes, hábitos (rotina) e checks foram removidos do app: backups antigos importam e essas partes são descartadas */
     return s;
