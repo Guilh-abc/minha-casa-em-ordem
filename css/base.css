@@ -62,7 +62,8 @@ a:focus, button:focus, input:focus, select:focus, textarea:focus, [data-f]:focus
 
 /* economia de tela / modo noite */
 body.dim #shell { opacity: .3; }
-html.noite body { filter: brightness(.72); }
+/* modo noite: véu fixo em vez de filter no body (filter cria bloco de contenção e soltava o menu fixo no meio da tela) */
+html.noite body::after { content: ""; position: fixed; inset: 0; background: rgba(0, 0, 0, .28); pointer-events: none; z-index: 95; }
 html.noite { --c-magenta-brilho: rgba(226, 0, 116, .3); }
 @media (prefers-reduced-motion: reduce) { #shell { transition: none; } }
 

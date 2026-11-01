@@ -543,3 +543,9 @@ textarea.entrada { min-height: 5rem; font-size: .6rem; font-family: ui-monospace
 .ds-bt:disabled { opacity: .4; }
 .ds-tmdb { font-size: .58rem; color: var(--c-texto-2); text-align: center; margin: .4rem 0 0; } .ds-tmdb a { color: var(--c-magenta-claro); }
 @media (prefers-reduced-motion: reduce) { .ds-cartao { transition: none; } }
+@media (max-width: 799px) {
+  .ds-poster { max-height: 34vh; }
+  .ds-sinopse { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ds-info { gap: .2rem; padding: .5rem .7rem .6rem; }
+  .ds-botoes { margin: .5rem 0 .2rem; gap: .5rem; }
+}

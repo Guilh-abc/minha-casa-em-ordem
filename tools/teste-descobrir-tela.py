@@ -49,6 +49,21 @@ with sync_playwright() as p:
         check('—' not in pg.locator('main').inner_text(), '%d sem travessão' % w)
         for f in ('ds:nao', 'ds:quero', 'ds:visto', 'ds:desfazer'):
             bb = pg.locator('[data-fid="%s"]' % f).bounding_box(); check(bb['height'] >= 44 and bb['width'] >= 44, '%d botão %s >=44px' % (w, f))
+        def menu_ok(rot):
+            r = pg.evaluate("(() => { const m = document.querySelector('.menu'); if (!m || getComputedStyle(m).position !== 'fixed') return null; const b = m.getBoundingClientRect(); return [b.bottom, innerHeight, b.top]; })()")
+            if w < 800: check(r and abs(r[0] - r[1]) <= 1, '%d menu fixo no rodapé %s %s' % (w, rot, r))
+            return r
+        for noite in (False, True):
+            pg.evaluate('document.documentElement.classList.toggle("noite", %s)' % ('true' if noite else 'false'))
+            nm = 'noite' if noite else 'dia'
+            pg.evaluate('scrollTo(0, 0)'); pg.locator('[data-fid="ds:cartao"]').evaluate('e => e.scrollIntoView()'); pg.wait_for_timeout(100)
+            r = menu_ok(nm + ' parado')
+            if w < 800:
+                bt = pg.locator('[data-fid="ds:quero"]').bounding_box(); check(bt['y'] + bt['height'] <= r[2] + 1, '%d %s botões visíveis sem rolar (botão %d, menu %d)' % (w, nm, bt['y'] + bt['height'], r[2]))
+                bb0 = pg.locator('[data-fid="ds:cartao"]').bounding_box(); x0, y0 = bb0['x'] + bb0['width'] / 2, bb0['y'] + 60
+                pg.mouse.move(x0, y0); pg.mouse.down(); pg.mouse.move(x0 + 50, y0, steps=4)
+                menu_ok(nm + ' durante arrasto'); pg.mouse.move(x0, y0, steps=3); pg.mouse.up(); pg.wait_for_timeout(300); menu_ok(nm + ' após arrasto')
+        pg.evaluate('document.documentElement.classList.remove("noite")')
         if w == 390 and a.print: pg.locator('[data-fid="fs:area"]').evaluate('e => e.scrollIntoView()'); pg.wait_for_timeout(2500); pg.screenshot(path=a.print)
         # arrastar para a direita (mouse)
         t1 = titulo(pg); bb = cart.bounding_box(); x, y = bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 3
