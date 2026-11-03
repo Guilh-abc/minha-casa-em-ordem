@@ -28,7 +28,7 @@ with sync_playwright() as p:
         pg.goto(base + '#/'); pg.wait_for_timeout(800); pg.evaluate(DADOS); pg.wait_for_timeout(200)
         menu = pg.eval_on_selector_all('.menu a', 'l => l.map(a => [a.getAttribute("href"), a.textContent.trim()])')
         hrefs = [m[0] for m in menu]; nomes = [m[1] for m in menu]
-        check(hrefs == ['#/', '#/tarefas', '#/agenda', '#/compras', '#/contas', '#/cartoes', '#/relaxar', '#/gerenciar'], '[%d] menu: Hoje, Tarefas, Agenda, Lista de Compra, Contas a pagar, Cartões, Relaxar, Gerenciar (%s)' % (w, hrefs))
+        check(hrefs == ['#/', '#/tarefas', '#/agenda', '#/compras', '#/contas', '#/cartoes', '#/carro', '#/relaxar', '#/gerenciar'], '[%d] menu: Hoje, Tarefas, Agenda, Lista de Compra, Contas a pagar, Cartões, Carro, Relaxar, Gerenciar (%s)' % (w, hrefs))
         check(nomes[3] == 'Lista de Compra' and nomes[4].startswith('Contas a pagar') and not any(n.startswith(('Família', 'Rotina')) for n in nomes), '[%d] rótulos: Lista de Compra e Contas a pagar; sem Família e sem Rotina' % w)
         # Hoje
         t = pg.inner_text('main')

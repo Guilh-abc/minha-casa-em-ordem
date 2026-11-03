@@ -3,7 +3,7 @@
   'use strict';
   var PS = g.PS = g.PS || {};
   var U = PS.u, S = PS.store;
-  var ROTAS = ['', 'tarefas', 'agenda', 'compras', 'contas', 'cartoes', 'relaxar', 'gerenciar', 'assistente', 'compras', 'importar', 'instalar', 'sincronizar'];
+  var ROTAS = ['', 'tarefas', 'agenda', 'compras', 'contas', 'cartoes', 'relaxar', 'carro', 'gerenciar', 'assistente', 'compras', 'importar', 'instalar', 'sincronizar'];
   var viewAtual = null, paramAtual = '';
   var principal = function () { return document.getElementById('app'); };
 

@@ -292,7 +292,11 @@
     var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Sugestões' });
     function montarAtalhos() {
       U.limpar(atalhos);
-      C.sugestoesDinamicas(dadosConsulta(), U.hoje(), new Date().getHours(), S.get().compras || []).forEach(function (x, i) {
+      var avCarro = (PS.carro ? PS.carro.avisos() : []).slice(0, 1);
+      avCarro.forEach(function (v, i) {
+        atalhos.appendChild(h('button', { class: 'btn ativo', type: 'button', 'data-fid': 'ass-carro-' + i, onclick: function () { g.location.hash = '#/carro'; } }, I('carro'), 'Carro: ' + v.rotulo + (v.dias === 0 ? ' vence hoje' : ' vence em ' + v.dias + (v.dias === 1 ? ' dia' : ' dias'))));
+      });
+      C.sugestoesDinamicas(dadosConsulta(), U.hoje(), new Date().getHours(), S.get().compras || []).slice(avCarro.length ? 1 : 0).forEach(function (x, i) {
         atalhos.appendChild(h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(x.pergunta, x.tipo === 'consulta'); montarAtalhos(); } }, x.rotulo));
       });
     }

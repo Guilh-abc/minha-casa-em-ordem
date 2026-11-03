@@ -18,7 +18,7 @@
   var PRIORIDADES = ['alta', 'media', 'baixa'];
 
   function vazio() {
-    return { app: 'minha-casa-em-ordem', versao: VERSAO, config: copia(PADRAO_CONFIG), listas: ['Casa', 'Trabalho', 'Maria Alice'], tarefas: [], compromissos: [], contas: [], links: [], foco: [], cartoes: [], faturas: [], lancs: [], regras: [], radios: [], passeios: [], programa: [], compras: [], notas: [], filmes: [] };
+    return { app: 'minha-casa-em-ordem', versao: VERSAO, config: copia(PADRAO_CONFIG), listas: ['Casa', 'Trabalho', 'Maria Alice'], tarefas: [], compromissos: [], contas: [], links: [], foco: [], cartoes: [], faturas: [], lancs: [], regras: [], radios: [], passeios: [], programa: [], compras: [], notas: [], filmes: [], carro: [] };
   }
   function copia(o) { return JSON.parse(JSON.stringify(o)); }
   function str(v, n) { return U.limitar(v == null ? '' : String(v).replace(/[\u0000-\u001f]/g, ' '), n || 120).trim(); }
@@ -66,7 +66,7 @@
       return { id: id(x), por: str(x.por, 60), lista: str(x.lista, 30) || s.listas[0], titulo: str(x.titulo, 120) || 'Tarefa', prio: PRIORIDADES.indexOf(x.prio) >= 0 ? x.prio : 'media', vence: U.dataValida(x.vence) ? x.vence : '', feita: !!x.feita, dono: donoOk(x.dono), repete: PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '', gerou: str(x.gerou, 40), base: U.dataValida(x.base) ? x.base : '', exemplo: !!x.exemplo };
     });
     s.compromissos = arr(o.compromissos).slice(0, 600).filter(function (x) { return U.dataValida(x.data); }).map(function (x) {
-      return { id: id(x), por: str(x.por, 60), titulo: str(x.titulo, 120) || 'Compromisso', data: x.data, hora: U.horaValida(x.hora) ? x.hora : '', local: str(x.local, 80), fonte: x.fonte === 'ics' ? 'ics' : 'manual', dono: donoOk(x.dono), exemplo: !!x.exemplo, repete: x.fonte === 'ics' ? '' : PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '' };
+      return { id: id(x), por: str(x.por, 60), titulo: str(x.titulo, 120) || 'Compromisso', data: x.data, hora: U.horaValida(x.hora) ? x.hora : '', local: str(x.local, 80), fonte: x.fonte === 'ics' ? 'ics' : 'manual', dono: donoOk(x.dono), exemplo: !!x.exemplo, repete: x.fonte === 'ics' ? '' : PS.rep.valido(x.repete), ate: U.dataValida(x.ate) ? x.ate : '', etiqueta: x.etiqueta === 'carro' ? 'carro' : '' };
     });
     s.contas = arr(o.contas).slice(0, 80).map(function (x) {
       /* pagas[mês] = true (pago, sem data) ou 'AAAA-MM-DD' (data do pagamento, manual) */
@@ -125,6 +125,14 @@
       return { id: id(x), titulo: str(x.titulo, 100) || 'Título', ano: x.ano ? Math.round(num(x.ano, 1880, 2100, 0)) || null : null, tipo: x.tipo === 'serie' ? 'serie' : 'filme',
         motivo: str(x.motivo, 200), status: st, data: iso(x.data), notaG: nota5(x.notaG), notaE: nota5(x.notaE), coment: str(x.coment, 200), atualizado: str(x.atualizado, 30),
         tmdb: x.tmdb ? Math.round(num(x.tmdb, 1, 1e9, 0)) || null : null, tm: x.tm === 'tv' ? 'tv' : (x.tm === 'movie' ? 'movie' : ''), poster: /^\/[A-Za-z0-9._-]{1,80}$/.test(x.poster || '') ? x.poster : '' };
+    });
+    /* Carro: abastecimentos, óleo, serviços, IPVA, multas, licenciamento, seguro, vencimentos anuais e pendências do desenho */
+    var TC = ['abastecimento', 'oleo', 'servico', 'ipva', 'multa', 'licenciamento', 'seguro', 'vencimento', 'pendencia', 'config'];
+    s.carro = arr(o.carro).slice(0, 3000).filter(function (x) { return x && TC.indexOf(x.tipo) >= 0; }).map(function (x) {
+      return { id: id(x), tipo: x.tipo, data: iso(x.data), valor: numOpc(x.valor), litros: numOpc(x.litros), comb: ['alcool', 'gasolina', 'diesel', 'gnv', 'outro'].indexOf(x.comb) >= 0 ? x.comb : '',
+        km: numOpc(x.km), oleo: str(x.oleo, 80), proxKm: numOpc(x.proxKm), proxData: iso(x.proxData), desc: str(x.desc, 200), oficina: str(x.oficina, 80),
+        cat: ['ipva', 'licenciamento', 'seguro'].indexOf(x.cat) >= 0 ? x.cat : '', antec: x.antec == null || x.antec === '' ? 15 : Math.round(num(x.antec, 0, 120, 15)),
+        parte: str(x.parte, 30), problema: str(x.problema, 30), status: x.status === 'resolvida' ? 'resolvida' : 'aberta', consMin: numOpc(x.consMin), consMax: numOpc(x.consMax), precoAlcool: numOpc(x.precoAlcool), precoGasolina: numOpc(x.precoGasolina), tanque: numOpc(x.tanque), consAlcMin: numOpc(x.consAlcMin), consAlcMax: numOpc(x.consAlcMax), kmMes: numOpc(x.kmMes), kmAtual: numOpc(x.kmAtual), oleoIntervalo: numOpc(x.oleoIntervalo), oleoAte: iso(x.oleoAte), gravidade: ['leve', 'media', 'grave'].indexOf(x.gravidade) >= 0 ? x.gravidade : '', por: str(x.por, 60), atualizado: str(x.atualizado, 30) };
     });
     /* lembretes, hábitos (rotina) e checks foram removidos do app: backups antigos importam e essas partes são descartadas */
     return s;

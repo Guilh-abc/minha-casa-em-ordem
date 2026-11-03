@@ -29,6 +29,20 @@
   --gap: .6rem;
   --margem-x: 3.5vw;
   --margem-y: 3vh;
+  /* Solid Glass (deeplethe/solid-glass, MIT): vidro grosso e esfumaçado, borda de luz em cima, linha fina em volta, sombra embaixo */
+  --glass-rim: rgba(255,255,255,.16);
+  --glass-inner: rgba(255,255,255,.04);
+  --glass-edge: rgba(255,255,255,.07);
+  --glass-shade: rgba(0,0,0,.6);
+  --glass-contact: rgba(0,0,0,.12);
+  --glass-control: rgba(255,255,255,.07);
+  --glass-control-rim: rgba(255,255,255,.14);
+  --glass-painel: rgba(38,38,38,.72);
+  --glass-blur: blur(26px);
+  --glass-blur-control: blur(14px);
+  --glass-sombra: inset 0 1px 0 var(--glass-rim), inset 0 0 0 1px var(--glass-inner), 0 0 0 1px var(--glass-edge), 0 1px 2px var(--glass-contact), 0 12px 32px -14px var(--glass-shade);
+  --glass-sombra-ctrl: inset 0 1px 0 var(--glass-control-rim), 0 0 0 1px var(--glass-edge), 0 1px 2px var(--glass-contact);
+  --car-c1: #E20074; --car-c2: #4FA3FF; --car-c3: #FFB020; --car-c4: #2EBB64; --car-c5: #FF6B5E; --car-c6: #B58CFF; --car-c7: #3CD3C8;
   --anel: 0 0 0 .14rem var(--c-fundo-0), 0 0 0 .3rem var(--c-magenta), 0 0 1.4rem .4rem var(--c-magenta-brilho);
 }
 html.contraste {
