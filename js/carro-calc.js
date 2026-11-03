@@ -5,7 +5,7 @@
   else { raiz.PS = raiz.PS || {}; raiz.PS.carroCalc = fabrica(); }
 })(typeof window !== 'undefined' ? window : this, function () {
   'use strict';
-  var TIPOS = { abastecimento: 'Abastecimento', oleo: 'Troca de óleo', servico: 'Serviço', ipva: 'IPVA', multa: 'Multa', licenciamento: 'Licenciamento', seguro: 'Seguro', vencimento: 'Vencimento anual', pendencia: 'Pendência' };
+  var TIPOS = { abastecimento: 'Abastecimento', oleo: 'Troca de óleo', servico: 'Serviço', ipva: 'IPVA', multa: 'Multa', licenciamento: 'Licenciamento', seguro: 'Seguro', vencimento: 'Vencimento anual', pendencia: 'Pendência', lembrete: 'Lembrete' };
   var GASTOS = ['abastecimento', 'oleo', 'servico', 'ipva', 'multa', 'licenciamento', 'seguro'];
   var ANUAIS = { ipva: 'IPVA', licenciamento: 'Licenciamento', seguro: 'Seguro' };
   var COMBS = { alcool: 'Álcool', gasolina: 'Gasolina', diesel: 'Diesel', gnv: 'GNV', outro: 'Outro' };
@@ -127,5 +127,52 @@
     r.avisar = r.urgente || (r.dias != null && r.dias <= 30) || (r.restantes != null && r.restantes <= 1000);
     return r;
   }
-  return { oleo: oleo, proximoAbast: proximoAbast, series: series, porMesCat: porMesCat, tanque: tanque, PADRAO_CFG: PADRAO_CFG, config: config, kmMes: kmMes, custos: custos, TIPOS: TIPOS, GASTOS: GASTOS, ANUAIS: ANUAIS, COMBS: COMBS, precoLitro: precoLitro, proximoVenc: proximoVenc, vencimentos: vencimentos, avisos: avisos, resumo: resumo, ultimo: ultimo, dif: dif };
+  /* Lembretes por data OU km, o que vier primeiro (ideia do LubeLogger, reescrita). Níveis: ok, chegando, urgente, vencido */
+  var NIVEIS = { ok: 'Em dia', chegando: 'Chegando', urgente: 'Urgente', vencido: 'Vencido' }, PESO = { ok: 0, chegando: 1, urgente: 2, vencido: 3 };
+  function nivel(dias, restKm) {
+    var n = 'ok';
+    function sobe(x) { if (PESO[x] > PESO[n]) n = x; }
+    if (dias != null) sobe(dias < 0 ? 'vencido' : dias <= 7 ? 'urgente' : dias <= 30 ? 'chegando' : 'ok');
+    if (restKm != null) sobe(restKm < 0 ? 'vencido' : restKm <= 500 ? 'urgente' : restKm <= 1500 ? 'chegando' : 'ok');
+    return n;
+  }
+  function lembretes(itens, cfg, hoje) {
+    var km = cfg.kmAtual > 0 ? cfg.kmAtual : null, r = [], vistos = {};
+    function add(rot, data, pk, item, origem) {
+      if (!data && !(pk > 0)) return;
+      var d = data ? dif(data, hoje) : null, rest = km && pk > 0 ? Math.round(pk - km) : null;
+      r.push({ rotulo: rot, data: data || '', proxKm: pk > 0 ? pk : null, dias: d, restKm: rest, nivel: nivel(d, rest), item: item, origem: origem });
+    }
+    var o = oleo(itens, cfg, hoje); add('Troca de óleo', o.ate, o.proxKm, o.ultima, 'oleo');
+    (itens || []).filter(function (x) { return (x.tipo === 'servico' || x.tipo === 'lembrete') && (x.proxData || x.proxKm > 0); })
+      .sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; })
+      .forEach(function (x) { var k = (x.desc || '').toLowerCase(); if (x.tipo === 'servico' && vistos[k]) return; vistos[k] = 1; add(x.desc || (x.tipo === 'servico' ? 'Serviço' : 'Lembrete'), x.proxData, x.proxKm, x, x.tipo); });
+    return r.sort(function (a, b) { return PESO[b.nivel] - PESO[a.nivel] || (a.dias == null ? 1e9 : a.dias) - (b.dias == null ? 1e9 : b.dias); });
+  }
+  /* Consumo real por tanque: entre dois abastecimentos de tanque cheio (ideia do Clarkson, reescrita) */
+  function tanques(itens) {
+    var l = (itens || []).filter(function (x) { return x.tipo === 'abastecimento' && x.km > 0; }).sort(function (a, b) { return a.km - b.km; }), r = [], ant = null, lit = 0, val = 0;
+    l.forEach(function (x) {
+      if (ant) { lit += x.litros > 0 ? x.litros : 0; val += x.valor > 0 ? x.valor : 0; }
+      if (!x.cheio) return;
+      if (ant && lit > 0 && x.km > ant.km) { var d = x.km - ant.km; r.push({ de: ant.data, ate: x.data, km: d, litros: n2(lit), kmL: n2(d / lit), custoKm: Math.round(val / d * 1000) / 1000, comb: x.comb || '' }); }
+      ant = x; lit = 0; val = 0;
+    });
+    return r;
+  }
+  function anormal(itens, cfg, limite) {
+    var t = tanques(itens), u = t[t.length - 1]; if (!u) return null;
+    var ref = u.comb === 'gasolina' ? cfg.consMin : cfg.consAlcMin; if (!(ref > 0)) return null;
+    var lim = n2(ref * (1 - (limite == null ? 0.15 : limite)));
+    return u.kmL < lim ? { tanque: u, ref: ref, limite: lim, queda: Math.round((1 - u.kmL / ref) * 100) } : null;
+  }
+  function painel(itens, cfg, hoje) {
+    var c = [];
+    lembretes(itens, cfg, hoje).forEach(function (x) { if (x.nivel !== 'ok') c.push({ peso: PESO[x.nivel], dias: x.dias, nivel: x.nivel, texto: x.rotulo + ': ' + NIVEIS[x.nivel].toLowerCase() }); });
+    vencimentos(itens, hoje).forEach(function (v) { if (v.avisar) c.push({ peso: v.dias <= 7 ? 2 : 1, dias: v.dias, nivel: v.dias <= 7 ? 'urgente' : 'chegando', texto: v.rotulo + ' vence em ' + v.dias + ' dias' }); });
+    var a = anormal(itens, cfg); if (a) c.push({ peso: 1, dias: 999, nivel: 'chegando', texto: 'Consumo ' + a.queda + '% abaixo do normal' });
+    c.sort(function (x, y) { return y.peso - x.peso || (x.dias == null ? 1e9 : x.dias) - (y.dias == null ? 1e9 : y.dias); });
+    return c.length ? { ok: false, principal: c[0], total: c.length } : { ok: true };
+  }
+  return { NIVEIS: NIVEIS, nivel: nivel, lembretes: lembretes, tanques: tanques, anormal: anormal, painel: painel, oleo: oleo, proximoAbast: proximoAbast, series: series, porMesCat: porMesCat, tanque: tanque, PADRAO_CFG: PADRAO_CFG, config: config, kmMes: kmMes, custos: custos, TIPOS: TIPOS, GASTOS: GASTOS, ANUAIS: ANUAIS, COMBS: COMBS, precoLitro: precoLitro, proximoVenc: proximoVenc, vencimentos: vencimentos, avisos: avisos, resumo: resumo, ultimo: ultimo, dif: dif };
 });

@@ -127,12 +127,12 @@
         tmdb: x.tmdb ? Math.round(num(x.tmdb, 1, 1e9, 0)) || null : null, tm: x.tm === 'tv' ? 'tv' : (x.tm === 'movie' ? 'movie' : ''), poster: /^\/[A-Za-z0-9._-]{1,80}$/.test(x.poster || '') ? x.poster : '' };
     });
     /* Carro: abastecimentos, óleo, serviços, IPVA, multas, licenciamento, seguro, vencimentos anuais e pendências do desenho */
-    var TC = ['abastecimento', 'oleo', 'servico', 'ipva', 'multa', 'licenciamento', 'seguro', 'vencimento', 'pendencia', 'config'];
+    var TC = ['abastecimento', 'oleo', 'servico', 'ipva', 'multa', 'licenciamento', 'seguro', 'vencimento', 'pendencia', 'config', 'lembrete'];
     s.carro = arr(o.carro).slice(0, 3000).filter(function (x) { return x && TC.indexOf(x.tipo) >= 0; }).map(function (x) {
       return { id: id(x), tipo: x.tipo, data: iso(x.data), valor: numOpc(x.valor), litros: numOpc(x.litros), comb: ['alcool', 'gasolina', 'diesel', 'gnv', 'outro'].indexOf(x.comb) >= 0 ? x.comb : '',
         km: numOpc(x.km), oleo: str(x.oleo, 80), proxKm: numOpc(x.proxKm), proxData: iso(x.proxData), desc: str(x.desc, 200), oficina: str(x.oficina, 80),
         cat: ['ipva', 'licenciamento', 'seguro'].indexOf(x.cat) >= 0 ? x.cat : '', antec: x.antec == null || x.antec === '' ? 15 : Math.round(num(x.antec, 0, 120, 15)),
-        parte: str(x.parte, 30), problema: str(x.problema, 30), status: x.status === 'resolvida' ? 'resolvida' : 'aberta', consMin: numOpc(x.consMin), consMax: numOpc(x.consMax), precoAlcool: numOpc(x.precoAlcool), precoGasolina: numOpc(x.precoGasolina), tanque: numOpc(x.tanque), consAlcMin: numOpc(x.consAlcMin), consAlcMax: numOpc(x.consAlcMax), kmMes: numOpc(x.kmMes), kmAtual: numOpc(x.kmAtual), oleoIntervalo: numOpc(x.oleoIntervalo), oleoAte: iso(x.oleoAte), gravidade: ['leve', 'media', 'grave'].indexOf(x.gravidade) >= 0 ? x.gravidade : '', por: str(x.por, 60), atualizado: str(x.atualizado, 30) };
+        parte: str(x.parte, 30), problema: str(x.problema, 30), status: x.status === 'resolvida' ? 'resolvida' : 'aberta', consMin: numOpc(x.consMin), consMax: numOpc(x.consMax), precoAlcool: numOpc(x.precoAlcool), precoGasolina: numOpc(x.precoGasolina), tanque: numOpc(x.tanque), consAlcMin: numOpc(x.consAlcMin), consAlcMax: numOpc(x.consAlcMax), kmMes: numOpc(x.kmMes), kmAtual: numOpc(x.kmAtual), oleoIntervalo: numOpc(x.oleoIntervalo), oleoAte: iso(x.oleoAte), cheio: !!x.cheio, gravidade: ['leve', 'media', 'grave'].indexOf(x.gravidade) >= 0 ? x.gravidade : '', por: str(x.por, 60), atualizado: str(x.atualizado, 30) };
     });
     /* lembretes, hábitos (rotina) e checks foram removidos do app: backups antigos importam e essas partes são descartadas */
     return s;

@@ -57,7 +57,7 @@
   function formulario() {
     var x = form, t = x.tipo, el = {}, campos = [];
     function f(k, rot, node) { el[k] = node; campos.push(campo(rot, node)); }
-    if (t !== 'vencimento' && t !== 'pendencia' || t === 'pendencia') f('data', t === 'pendencia' ? 'Data em que notou' : 'Data', entrada('data', x.data || U.hoje(), { type: 'date' }));
+    if (t !== 'vencimento' && t !== 'lembrete') f('data', t === 'pendencia' ? 'Data em que notou' : 'Data', entrada('data', x.data || U.hoje(), { type: 'date' }));
     if (t === 'vencimento') {
       f('cat', 'Tipo', selecao('cat', [['ipva', 'IPVA'], ['licenciamento', 'Licenciamento'], ['seguro', 'Seguro']], x.cat || 'ipva'));
       f('data', 'Data de vencimento (repete todo ano)', entrada('data', x.data || '', { type: 'date' }));
@@ -72,14 +72,18 @@
       f('desc', 'Descrição', entrada('desc', x.desc, { maxlength: '200', placeholder: 'Ex.: risco perto da maçaneta' }));
       f('status', 'Situação', selecao('status', [['aberta', 'Aberta'], ['resolvida', 'Resolvida']], x.status || 'aberta'));
     } else {
-      f('valor', 'Valor R$', numero('valor', x.valor, 'Ex.: 250,00'));
+      if (t !== 'lembrete') f('valor', 'Valor R$', numero('valor', x.valor, 'Ex.: 250,00'));
       if (t === 'abastecimento') {
         f('comb', 'Combustível', selecao('comb', [['alcool', 'Álcool'], ['gasolina', 'Gasolina'], ['diesel', 'Diesel'], ['gnv', 'GNV'], ['outro', 'Outro']], x.comb || 'alcool'));
         f('litros', 'Litros', numero('litros', x.litros, 'Ex.: 40,5'));
+        var ck = h('input', { type: 'checkbox', 'data-fid': 'car:f:cheio' }); ck.checked = !!x.cheio; el.cheio = ck;
+        campos.push(h('label', { class: 'campo car-check' }, ck, h('span', null, 'Tanque cheio (para medir o consumo real)')));
       }
       if (t === 'oleo') { f('oleo', 'Óleo usado (marca e tipo)', entrada('oleo', x.oleo, { maxlength: '80', placeholder: 'Ex.: 5W30 sintético' })); }
       if (['abastecimento', 'oleo', 'servico'].indexOf(t) >= 0) f('km', 'Km do painel' + (t === 'abastecimento' ? ' (opcional)' : ''), numero('km', x.km, 'Ex.: 45200'));
       if (t === 'oleo') { f('proxKm', 'Próxima troca em km (opcional)', numero('proxKm', x.proxKm)); f('proxData', 'Próxima troca em data (opcional)', entrada('proxData', x.proxData, { type: 'date' })); }
+      if (t === 'servico' || t === 'lembrete') { f('proxKm', 'Lembrar em km (opcional)', numero('proxKm', x.proxKm, 'Ex.: 55000')); f('proxData', 'Lembrar na data (opcional)', entrada('proxData', x.proxData, { type: 'date' })); }
+      if (t === 'lembrete') f('desc', 'O que lembrar', entrada('desc', x.desc, { maxlength: '200', placeholder: 'Ex.: rodízio de pneus' }));
       if (t === 'servico') { f('desc', 'Descrição', entrada('desc', x.desc, { maxlength: '200', placeholder: 'Ex.: alinhamento e balanceamento' })); f('oficina', 'Oficina (opcional)', entrada('oficina', x.oficina, { maxlength: '80' })); }
       if (['ipva', 'multa', 'licenciamento', 'seguro'].indexOf(t) >= 0) f('desc', 'Descrição (opcional)', entrada('desc', x.desc, { maxlength: '200' }));
     }
@@ -89,7 +93,8 @@
     if (t === 'pendencia') el.parte.addEventListener('change', function () { form.parte = el.parte.value; form.problema = el.problema.value; PS.redesenhar(); });
     function salvar() {
       var y = {}; Object.keys(x).forEach(function (k) { y[k] = x[k]; });
-      Object.keys(el).forEach(function (k) { var v = el[k].value; y[k] = ['valor', 'litros', 'km', 'proxKm', 'antec'].indexOf(k) >= 0 ? lerNum(v) : v; });
+      Object.keys(el).forEach(function (k) { if (k === 'cheio') { y.cheio = el.cheio.checked; return; } var v = el[k].value; y[k] = ['valor', 'litros', 'km', 'proxKm', 'antec'].indexOf(k) >= 0 ? lerNum(v) : v; });
+      if (t === 'lembrete') { if (!y.data) y.data = U.hoje(); if (!String(y.desc || '').trim()) { PS.aviso('Diga o que lembrar'); el.desc.focus(); return; } if (!y.proxData && !(y.proxKm > 0)) { PS.aviso('Informe a data ou o km'); el.proxData.focus(); return; } }
       if (!y.data) { PS.aviso('Informe a data'); el.data.focus(); return; }
       if (['abastecimento', 'oleo', 'servico', 'ipva', 'multa', 'licenciamento', 'seguro'].indexOf(t) >= 0 && !(y.valor > 0) && t !== 'oleo') { PS.aviso('Informe o valor'); el.valor.focus(); return; }
       if (t === 'abastecimento' && !(y.litros > 0)) { PS.aviso('Informe os litros'); el.litros.focus(); return; }
@@ -283,17 +288,39 @@
         botao('Enviar lembretes para a Agenda', 'car:ag-sinc', function () { sincAgenda(); PS.aviso('Lembretes do carro na Agenda'); PS.redesenhar(); }),
         h('a', { class: 'btn', href: '#/agenda', 'data-fid': 'car:ag-abrir' }, 'Abrir Agenda')));
   }
+  function cartaoLembretes(l) {
+    return h('section', { class: 'cartao car-vidro', 'data-fid': 'car:lembretes' }, h('h2', null, I('sino'), h('span', null, 'Lembretes por data ou km')),
+      h('p', { class: 'nota' }, 'Vence o que chegar primeiro: a data ou o km. Para ver os km, preencha o km atual nas configurações.'),
+      l.length ? l.map(function (x, i) {
+        var q = [x.data ? dataBR(x.data) + (x.dias < 0 ? ' (atrasado ' + (-x.dias) + ' dias)' : ' (em ' + x.dias + ' dias)') : '', x.proxKm ? num(x.proxKm, 0) + ' km' + (x.restKm != null ? (x.restKm < 0 ? ' (passou ' + num(-x.restKm, 0) + ' km)' : ' (faltam ' + num(x.restKm, 0) + ' km)') : '') : ''].filter(Boolean).join(' ou ');
+        return h('div', { class: 'car-item car-lemb', 'data-fid': 'car:lemb:' + i },
+          h('div', { class: 'car-item-topo' }, h('strong', null, x.rotulo), h('span', { class: 'car-nivel n-' + x.nivel, 'data-fid': 'car:nivel:' + i }, C.NIVEIS[x.nivel])),
+          h('small', null, q),
+          x.origem === 'lembrete' ? h('div', { class: 'acoes car-acoes' }, botao('Editar', 'car:ledit:' + i, function () { editar(x.item); }), botao('Excluir', 'car:lexc:' + i, function () { excluir(x.item); }, 'perigo')) : null);
+      }) : h('p', { class: 'vazio' }, 'Nenhum lembrete.'),
+      h('div', { class: 'acoes car-acoes' }, botao('Novo lembrete', 'car:lemb-novo', function () { novo('lembrete'); })));
+  }
+  function cartaoTanques(t, an) {
+    var ult = t.slice(-5).reverse();
+    return h('section', { class: 'cartao car-vidro' + (an ? ' car-aviso' : ''), 'data-fid': 'car:tanques' }, h('h2', null, I('carro'), h('span', null, 'Consumo real por tanque')),
+      an ? h('p', { class: 'car-alerta-txt', 'data-fid': 'car:anormal', role: 'alert' }, 'Consumo anormal: ' + num(an.tanque.kmL) + ' km/l, ' + an.queda + '% abaixo do configurado (' + num(an.ref) + ' km/l). Vale checar pneus, filtro de ar e velas.') : null,
+      ult.length ? ult.map(function (x) { return h('div', { class: 'car-item' }, h('div', { class: 'car-item-topo' }, h('strong', null, num(x.kmL) + ' km/l'), h('strong', { class: 'car-valor' }, brl(x.custoKm) + '/km')), h('small', null, dataBR(x.de) + ' a ' + dataBR(x.ate) + ' · ' + num(x.km, 0) + ' km · ' + num(x.litros) + ' l')); })
+        : h('p', { class: 'nota', 'data-fid': 'car:tanques-vazio' }, 'Marque "Tanque cheio" e informe o km em dois abastecimentos para medir o consumo real.'));
+  }
   function render() {
     var lista = comAgenda(itens()), hoje = U.hoje(), r = C.resumo(lista), cfg = C.config(lista), km = cfg.kmMes > 0 ? cfg.kmMes : C.kmMes(lista), cu = C.custos(cfg, km), tq = C.tanque(cfg, 'alcool'), tqG = C.tanque(cfg, 'gasolina'), ser = C.series(lista), prev = C.proximoAbast(lista, cfg, km), ol = C.oleo(lista, cfg, hoje);
     var venc = C.vencimentos(lista, hoje), avs = venc.filter(function (v) { return v.avisar; });
-    var tiposNovo = [['abastecimento', 'Abastecer'], ['oleo', 'Troca de óleo'], ['servico', 'Serviço'], ['ipva', 'IPVA'], ['multa', 'Multa'], ['licenciamento', 'Licenciamento'], ['seguro', 'Seguro']];
+    var tiposNovo = [['abastecimento', 'Abastecer'], ['oleo', 'Troca de óleo'], ['servico', 'Serviço'], ['ipva', 'IPVA'], ['multa', 'Multa'], ['licenciamento', 'Licenciamento'], ['seguro', 'Seguro'], ['lembrete', 'Lembrete']];
     var hist = lista.filter(function (x) { return C.GASTOS.indexOf(x.tipo) >= 0 && (filtro === 'todos' || x.tipo === filtro); }).sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
     var cats = Object.keys(r.porCat).sort(function (a, b) { return r.porCat[b] - r.porCat[a]; });
-    var mesAtual = hoje.slice(0, 7);
+    var mesAtual = hoje.slice(0, 7), lemb = C.lembretes(lista, cfg, hoje), tqs = C.tanques(lista), anor = C.anormal(lista, cfg), pnl = C.painel(lista, cfg, hoje);
     var el = h('div', { class: 'car-tela', 'data-fid': 'car:tela' },
       h('h1', { class: 'titulo-tela' }, 'Carro', h('small', null, 'gastos, vencimentos e pendências')),
+      h('section', { class: 'cartao car-vidro car-painel ' + (pnl.ok ? 'n-ok' : 'n-' + pnl.principal.nivel), 'data-fid': 'car:painel', role: 'status' },
+        h('strong', null, pnl.ok ? 'Tudo em dia' : pnl.principal.texto), h('small', null, pnl.ok ? 'Nenhum lembrete, vencimento ou alerta pendente.' : (pnl.total > 1 ? 'e mais ' + (pnl.total - 1) + (pnl.total === 2 ? ' aviso' : ' avisos') : 'o mais urgente agora'))),
       ol.urgente ? h('section', { class: 'cartao car-vidro car-urgente', 'data-fid': 'car:urgente', role: 'alert' }, h('strong', null, 'URGENTE'), h('p', null, 'Troca de óleo vence até ' + (U.DIAS ? U.DIAS[new Date(ol.ate + 'T12:00:00').getDay()].toLowerCase() + ', ' : '') + ol.ate.slice(8, 10) + '/' + ol.ate.slice(5, 7)), botao('Registrar troca', 'car:urg-novo', function () { novo('oleo'); }, 'primario')) : null,
       cartaoOleo(ol),
+      cartaoLembretes(lemb),
       widgetAgenda(),
       avs.length ? h('section', { class: 'cartao car-vidro car-aviso', 'data-fid': 'car:avisos', role: 'status' }, h('h2', null, I('sino'), h('span', null, 'Vence em breve')),
         avs.map(function (v) { return h('p', null, h('strong', null, v.rotulo), ' vence ' + (v.dias === 0 ? 'hoje' : v.dias === 1 ? 'amanhã' : 'em ' + v.dias + ' dias') + ' (' + dataBR(v.data) + ')' + (v.item.valor ? ', previsto ' + brl(v.item.valor) : '')); })) : null,
@@ -320,6 +347,7 @@
           : h('p', { class: 'nota', 'data-fid': 'car:previsao-vazia' }, 'Previsão do próximo abastecimento: precisa de um abastecimento, da capacidade do tanque e dos km por mês.'),
         h('p', { class: 'nota' }, 'Consumo: álcool ' + num(cfg.consAlcMin) + ' a ' + num(cfg.consAlcMax) + ' km/l, gasolina ' + num(cfg.consMin) + ' a ' + num(cfg.consMax) + ' km/l · álcool ' + (cfg.precoAlcool ? brl(cfg.precoAlcool) + '/l' : 'sem preço') + (cfg.precoGasolina ? ' · gasolina ' + brl(cfg.precoGasolina) + '/l' : '')),
         verCfg ? configuracoes(cfg) : h('div', { class: 'acoes car-acoes' }, botao('Configurações do carro', 'car:cfg-abrir', function () { verCfg = true; PS.redesenhar(); }))),
+      cartaoTanques(tqs, anor),
       h('section', { class: 'cartao car-vidro', 'data-fid': 'car:graficos' }, h('h2', null, I('carro'), h('span', null, 'Gráficos')),
         h('h3', { class: 'car-h3' }, 'Consumo km/l'), linha(ser.consumo, { titulo: 'Consumo km/l', un: 'km/l', dec: 2, faixa: [cfg.consAlcMin, cfg.consAlcMax], vazio: 'Registre o km em dois abastecimentos ou mais para ver o consumo.' }),
         h('h3', { class: 'car-h3' }, 'Gastos por mês e categoria'), barras(C.porMesCat(lista, 6)),

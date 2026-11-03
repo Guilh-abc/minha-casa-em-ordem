@@ -623,3 +623,15 @@ html.contraste .btn { background: var(--c-superficie-2); border: 2px solid var(-
 .car-urgente p { margin: 0; font-size: 1rem; font-weight: 800; }
 .car-ag { text-decoration: none; color: inherit; min-height: 44px; }
 .car-ag:active { box-shadow: var(--glass-sombra-ctrl), inset 0 0 0 2px var(--c-magenta); }
+/* Carro: painel, níveis de lembrete, tanque cheio */
+.car-painel { display: flex; flex-direction: column; gap: 2px; border-left: 6px solid var(--c-ok, #2e8b57); }
+.car-painel strong { font-size: 1.15rem; }
+.car-painel.n-chegando { border-left-color: var(--c-aviso); }
+.car-painel.n-urgente, .car-painel.n-vencido { border-left-color: var(--c-perigo, #c0392b); }
+.car-nivel { font-size: .8rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: rgba(46,139,87,.15); color: var(--c-ok); white-space: nowrap; }
+.car-nivel.n-chegando { background: rgba(230,160,0,.2); color: #FFC94D; }
+.car-nivel.n-urgente { background: rgba(214,80,0,.18); color: #FF9A4D; }
+.car-nivel.n-vencido { background: rgba(255,107,94,.22); color: var(--c-perigo); }
+.car-check { flex-direction: row; align-items: center; gap: 10px; min-height: 44px; }
+.car-check input { width: 24px; height: 24px; }
+.car-alerta-txt { font-weight: 600; color: var(--c-perigo); }
