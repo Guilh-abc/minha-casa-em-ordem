@@ -36,4 +36,11 @@ t('juntar: total da parte que tem, R$ 0,00 não conta como total', J.total === 6
 t('normalizar: R$ 0,00 vira falta de total', N.normalizar({ itens: [{ nome: 'a', total: '5' }], total: 'R$ 0,00' }).total === null);
 t('totalDe: total 0 com itens usa a soma', N.totalDe({ total: 0, itens: [{ total: 10 }, { total: 5 }] }) === 15);
 t('semValor: tudo vazio', N.semValor({ total: 0, itens: [{ total: null }] }) && !N.semValor({ total: 3, itens: [] }));
+var CL = [{ id: 'a', loja: 'X', data: '2026-11-02', total: 100, itens: [] }, { id: 'b', loja: 'Y', data: '2026-11-20', total: null, itens: [{ total: 20.5 }] },
+  { id: 'c', loja: 'X', data: '2026-09-10', total: 30.25, itens: [] }, { id: 'd', loja: 'Z', data: '', total: 99, itens: [] }];
+var CO = N.consolidado(CL);
+t('consolidado: só meses com compra, do mais recente ao mais antigo', CO.meses.map(function (m) { return m.ym; }).join() === '2026-11,2026-09');
+t('consolidado: total e nº de notas por mês, notas do mês em ordem', CO.meses[0].total === 120.5 && CO.meses[0].n === 2 && CO.meses[0].compras[0].id === 'b' && CO.meses[1].total === 30.25);
+t('consolidado: total geral = soma dos meses (nota sem data fica fora)', CO.total === 150.75 && CO.n === 3);
+t('consolidado: vazio', N.consolidado([]).meses.length === 0 && N.consolidado([]).total === 0 && N.consolidado(null).n === 0);
 console.log(ok + ' ok, ' + falhas + ' falhas'); process.exit(falhas ? 1 : 0);
