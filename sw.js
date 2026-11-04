@@ -1,8 +1,8 @@
 /* Service worker simples: rede primeiro, cache como reserva (casca offline). Troque VERSAO a cada release (tools/versionar.sh faz isso). */
-var VERSAO = 'minha-casa-391cbb9';
+var VERSAO = 'minha-casa-2928e6b';
 var ARQUIVOS = ['./', 'dados.json', 'manifest.webmanifest', 'assets/favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'css/tokens.css', 'css/base.css', 'css/app.css',
-  'js/util.js', 'js/cripto.js', 'js/sync-nucleo.js', 'js/sync.js', 'js/sincronizar.js', 'js/bloqueio.js', 'js/portal.js', 'js/icons.js', 'js/store.js', 'js/dominio.js', 'js/clima.js', 'js/ics.js', 'js/financeiro.js', 'js/financas-ui.js', 'js/lembretes.js', 'js/cartoes-calc.js', 'js/fatura-parser.js', 'js/graficos.js', 'js/pdf-importar.js', 'js/cartoes.js', 'js/nav.js', 'js/energia.js', 'js/telas.js', 'js/gerenciar.js', 'js/leitura.js', 'js/assistente-consultas.js', 'js/assistente.js', 'js/app.js'];
+  'js/util.js', 'js/cripto.js', 'js/sync-nucleo.js', 'js/sync.js', 'js/sincronizar.js', 'js/bloqueio.js', 'js/portal.js', 'js/icons.js', 'js/store.js', 'js/repeticao.js', 'js/dominio.js', 'js/clima.js', 'js/ics.js', 'js/financeiro.js', 'js/financas-ui.js', 'js/lembretes.js', 'js/cartoes-calc.js', 'js/fatura-parser.js', 'js/graficos.js', 'js/pdf-importar.js', 'js/cartoes.js', 'js/nav.js', 'js/energia.js', 'js/telas.js', 'js/gerenciar.js', 'js/assistente-consultas.js', 'js/ajudante-gemini.js', 'js/assistente.js', 'js/mascara.js', 'js/foto-nucleo.js', 'js/foto.js', 'js/notas-nucleo.js', 'js/planilha.js', 'js/notas.js', 'js/descobrir.js', 'js/filmes.js', 'js/carro-calc.js', 'js/carro.js', 'js/app.js'];
 
 self.addEventListener('install', function (e) {
   /* pré-carrega a casca; NÃO guarda resposta redirecionada/de erro (ex.: tela de login quando a sessão expirou) */
@@ -54,7 +54,7 @@ function checarAvisos() {
     r.v.agenda.forEach(function (a) { if (a.avisar === hoje && !env[a.chave]) novos.push(a); });
     if (!novos.length) return;
     novos.forEach(function (a) { env[a.chave] = hoje; });
-    return Promise.all(novos.map(function (a) { return self.registration.showNotification(a.titulo, { body: a.corpo, tag: a.chave, icon: 'icons/icon-192.png', data: { url: '#/familia' }, lang: 'pt-BR' }); })).then(function () {
+    return Promise.all(novos.map(function (a) { return self.registration.showNotification(a.titulo, { body: a.corpo, tag: a.chave, icon: 'icons/icon-192.png', data: { url: '#/contas' }, lang: 'pt-BR' }); })).then(function () {
       var tx = r.db.transaction('kv', 'readwrite'); r.v.enviados = env; tx.objectStore('kv').put(r.v, 'agenda');
     });
   });
@@ -62,7 +62,7 @@ function checarAvisos() {
 self.addEventListener('periodicsync', function (e) { if (e.tag === 'painel-contas') e.waitUntil(checarAvisos()); });
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
-  var alvo = new URL((e.notification.data && e.notification.data.url) || '#/familia', self.registration.scope).href;
+  var alvo = new URL((e.notification.data && e.notification.data.url) || '#/contas', self.registration.scope).href;
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
     for (var i = 0; i < cs.length; i++) { if ('focus' in cs[i]) { cs[i].navigate && cs[i].navigate(alvo); return cs[i].focus(); } }
     return self.clients.openWindow(alvo);

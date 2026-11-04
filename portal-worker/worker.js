@@ -40,11 +40,11 @@ function senhaFraca(s, email) {
 }
 
 /* ---------- respostas e cabeçalhos ---------- */
-var CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; " +
+var CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://image.tmdb.org; font-src 'self'; " +
   "connect-src 'self' " + SYNC_ORIGEM + " https://minha-casa-assistente.guilhermeromionetto.workers.dev https://api.open-meteo.com https://geocoding-api.open-meteo.com; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
 function seguranca(h, tipo) {
   h.set('Content-Security-Policy', CSP); h.set('X-Content-Type-Options', 'nosniff'); h.set('Referrer-Policy', 'no-referrer'); h.set('X-Frame-Options', 'DENY');
-  h.set('Cross-Origin-Opener-Policy', 'same-origin'); h.set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()'); h.set('Strict-Transport-Security', 'max-age=31536000');
+  h.set('Cross-Origin-Opener-Policy', 'same-origin'); h.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=(), payment=()'); h.set('Strict-Transport-Security', 'max-age=31536000');
   if (tipo !== 'ativo') h.set('Cache-Control', 'no-store'); else h.set('Cache-Control', 'private, no-cache');
   return h;
 }

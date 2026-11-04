@@ -1,4 +1,4 @@
-/* Telas: Hoje, Rotina, Tarefas, Agenda, Família, Relaxar, Importar, Instalar. */
+/* Telas: Hoje, Tarefas, Agenda, Contas a pagar, Relaxar, Importar, Instalar. */
 (function (g) {
   'use strict';
   var PS = g.PS = g.PS || {};
@@ -10,6 +10,7 @@
     return h('section', { class: 'cartao' },
       h('h2', null, I(icone), h('span', null, titulo), mais ? h('span', { class: 'mais' }, mais) : null), filhos);
   }
+  function tagPor(x) { return x.por ? h('span', { class: 'tag-por', 'data-fid': 'por:' + x.id }, 'por ' + x.por) : null; }
   function tagExemplo(x) { return x.exemplo ? h('span', { class: 'exemplo' }, 'exemplo') : null; }
   function nada() { return null; }
   function caixa(on) { return h('span', { class: 'caixa' + (on ? ' on' : ''), 'aria-hidden': 'true' }, I('check')); }
@@ -49,17 +50,13 @@
 
     var comp = D.proximosCompromissos(s, ag, 7), nComp = comp.length;
     var listaComp = comp.slice(0, 3).map(function (c) {
-      return h('a', { class: 'item', href: '#/agenda', 'data-fid': 'cp:' + c.id },
+      return h('a', { class: 'item', href: '#/agenda', 'data-fid': 'cp:' + c.id + (c.origem ? '@' + c.data : '') },
         h('span', { class: 'hora' }, c.hora || 'Dia'), h('span', { class: 't' }, c.titulo, nada()), h('span', { class: 'meta' }, c.data === hoje ? 'hoje' : U.dataCurta(c.data).split(',')[0]));
     });
     var tars = D.itensDoDia(s, hoje), nT = tars.length;
     var listaT = tars.slice(0, 2).map(function (it) {
-      if (it.tipo === 'lembrete') {
-        return h('button', { class: 'item', type: 'button', 'data-fid': 'lp:' + it.l.id, onclick: function () { S.alterar(function (st) { st.lembretes.forEach(function (x) { if (x.id === it.l.id) x.feito = true; }); }); } },
-          caixa(false), it.l.icone ? I(it.l.icone, 'ic-fam') : null, h('span', { class: 't' }, it.l.titulo, nada()));
-      }
       var t = it.t;
-      return h('button', { class: 'item', type: 'button', 'data-fid': 'tr:' + t.id, onclick: function () { S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === t.id) x.feita = true; }); }); } },
+      return h('button', { class: 'item', type: 'button', 'data-fid': 'tr:' + t.id, onclick: function () { S.alterar(function (st) { st.tarefas.slice().forEach(function (x) { if (x.id === t.id) PS.rep.concluirTarefa(st.tarefas, x, U.hoje(), U.uid); }); }); } },
         caixa(false), h('span', { class: 't' }, t.titulo, nada()));
     });
     var frase = D.fraseDoDia(s, hoje);
@@ -75,35 +72,11 @@
         frase ? cartao('Foco do dia', 'alvo', h('p', { class: 'foco' }, frase)) : null)));
   } };
 
-  /* ---------- ROTINA ---------- */
-  views.rotina = { reativo: true, titulo: 'Rotina', render: function () {
-    var s = S.get(), hoje = U.hoje(), seg = U.somaDias(hoje, -((U.dowIso(hoje) + 6) % 7));
-    var feitos = s.habitos.filter(function (x) { return S.habitoFeito(x.id, hoje); }).length, tot = s.habitos.length, pct = tot ? Math.round(feitos * 100 / tot) : 0;
-    var lista = s.habitos.map(function (x) {
-      var on = S.habitoFeito(x.id, hoje), seq = S.sequencia(x.id), dias = [];
-      for (var i = 0; i < 7; i++) {
-        var d = U.somaDias(seg, i), f = S.habitoFeito(x.id, d);
-        dias.push(h('span', { class: 'dia' + (f ? ' on' : '') + (d === hoje ? ' hoje-d' : '') + (d > hoje ? ' futuro' : ''), title: U.dataCurta(d) }, h('span', null, U.DIAS_CURTOS[U.dowIso(d)].charAt(0)), h('i')));
-      }
-      return h('button', { class: 'habito', type: 'button', role: 'checkbox', 'aria-checked': on ? 'true' : 'false', 'data-fid': 'hb:' + x.id, onclick: function () { S.alternarHabito(x.id, hoje); } },
-        I(x.icone, 'icone'),
-        h('span', null, h('span', { class: 'nome' }, x.nome, tagExemplo(x)), h('span', { class: 'seq' }, seq ? [I('chama'), seq + (seq === 1 ? ' dia seguido' : ' dias seguidos')] : 'Sem sequência ainda')),
-        h('span', { class: 'semana' }, dias), caixa(on));
-    });
-    return h('div', null,
-      h('h1', { class: 'titulo-tela' }, 'Rotina', h('small', null, U.dataLonga(hoje))),
-      tot ? h('div', { class: 'cartao resumo-rotina' }, h('div', { class: 'progresso-txt' }, h('strong', null, feitos + ' de ' + tot), h('span', null, pct + '% dos hábitos de hoje')),
-        h('div', { class: 'barra' }, h('i', { style: 'width:' + pct + '%' }))) : null,
-      lista.length ? lista : h('p', { class: 'vazio' }, 'Nenhum hábito cadastrado. Abra Gerenciar → Hábitos.'));
-  } };
-
   /* ---------- TAREFAS ---------- */
-  var TODOS = '__todos', modoTarefas = 'lista';
-  /* ao entrar em Tarefas, mostra TODAS de cara (chip Todos, modo Lista): a escolha de lista vale só enquanto a pessoa está na tela */
-  if (typeof window !== 'undefined') window.addEventListener('hashchange', function (e) { var de = String(e.oldURL || '').split('#')[1] || '', para = String(e.newURL || '').split('#')[1] || ''; if (/^\/tarefas/.test(para) && !/^\/tarefas/.test(de)) { listaAtual = TODOS; modoTarefas = 'lista'; } });
+  var TODOS = '__todos', modoTarefas = 'lista', concluidasAberta = false;
   function seloPrio(p) { return selo(p === 'alta' ? 'perigo' : p === 'media' ? 'aviso' : 'neutro', p === 'alta' ? 'alerta' : 'estrela', D.ROTULO_PRIO[p]); }
   function tagLista(t) { return h('span', { class: 'tag-lista' }, t.lista); }
-  function alternarFeita(id) { S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === id) x.feita = !x.feita; }); }); }
+  function alternarFeita(id) { S.alterar(function (st) { st.tarefas.slice().forEach(function (x) { if (x.id === id) { if (x.feita) x.feita = false; else PS.rep.concluirTarefa(st.tarefas, x, U.hoje(), U.uid); } }); }); }
   function moverPara(id, col) {
     var ok = false, hoje = U.hoje();
     S.alterar(function (st) { st.tarefas.forEach(function (x) { if (x.id === id) ok = D.moverTarefa(x, col, hoje); }); });
@@ -135,9 +108,10 @@
       return col;
     }));
   }
-  views.tarefas = { reativo: true, titulo: 'Tarefas', render: function () {
+  views.tarefas = { reativo: true, titulo: 'Tarefas', aoEntrar: function () { listaAtual = TODOS; concluidasAberta = false; }, render: function () {
     var s = S.get(), hoje = U.hoje(), nomes = D.listasComTarefas(s);
-    if (!listaAtual || (listaAtual !== TODOS && nomes.indexOf(listaAtual) < 0)) listaAtual = TODOS;
+    PS.focarLista = null;   /* filtro sempre em Todos: a tarefa recém-criada já aparece ali */
+    if (!listaAtual || (listaAtual !== TODOS && nomes.indexOf(listaAtual) < 0)) listaAtual = TODOS;   /* filtro inicial: sempre Todos */
     var todos = listaAtual === TODOS;
     function aba(id, rot, pend) {
       return h('button', { class: 'aba', type: 'button', role: 'tab', 'aria-selected': id === listaAtual ? 'true' : 'false', 'data-fid': 'aba:' + id, onclick: function () { listaAtual = id; PS.redesenhar(); } }, rot, h('small', null, pend));
@@ -151,12 +125,19 @@
     var corpo;
     if (modoTarefas === 'quadro') corpo = [quadro(s, hoje, todos ? '' : listaAtual), h('p', { class: 'nota' }, 'Arraste um cartão para outra coluna ou use "Mover para". Hoje = hoje; Esta semana = domingo; Depois = daqui a 14 dias; Sem data = tira o prazo. Concluídas ficam na Lista.')];
     else {
-      var ts = D.ordenarTarefas(s.tarefas.filter(function (t) { return todos || t.lista === listaAtual; }));
-      corpo = ts.length ? ts.map(function (t) {
+      var sep = D.separarTarefas(s.tarefas.filter(function (t) { return todos || t.lista === listaAtual; }));
+      var linhaT = function (t) {
         var venc = t.vence ? (t.feita ? selo('neutro', 'calendario', U.dataCurta(t.vence)) : seloVenc('', t.vence, hoje, false)) : null;
         return h('button', { class: 'item tarefa' + (t.feita ? ' feito' : ''), type: 'button', role: 'checkbox', 'aria-checked': t.feita ? 'true' : 'false', 'data-fid': 'tr:' + t.id, onclick: function () { alternarFeita(t.id); } },
-          caixa(t.feita), h('span', { class: 't' }, t.titulo, tagExemplo(t), todos ? tagLista(t) : null), seloPrio(t.prio), venc);
-      }) : h('p', { class: 'vazio' }, 'Lista vazia. Adicione tarefas em Gerenciar → Tarefas.');
+          caixa(t.feita), h('span', { class: 't' }, t.titulo, tagExemplo(t), todos ? tagLista(t) : null, tagPor(t)), seloPrio(t.prio), venc);
+      };
+      corpo = [sep.ativas.length ? sep.ativas.map(linhaT) : h('p', { class: 'vazio' }, sep.concluidas.length ? 'Tudo concluído por aqui!' : 'Lista vazia. Adicione tarefas em Gerenciar → Tarefas.')];
+      if (sep.concluidas.length) {
+        var det = h('details', { class: 'concluidas', 'data-fid': 'concluidas' }, h('summary', null, 'Concluídas', h('small', null, String(sep.concluidas.length))), sep.concluidas.slice(0, 50).map(linhaT));
+        if (concluidasAberta) det.open = true;
+        det.addEventListener('toggle', function () { concluidasAberta = det.open; });
+        corpo.push(det);
+      }
     }
     return h('div', null, h('h1', { class: 'titulo-tela' }, 'Tarefas'),
       h('div', { class: 'tarefas-topo' }, h('div', { class: 'abas', role: 'tablist' }, abas), modos), corpo);
@@ -174,7 +155,7 @@
     var y = +calMes.slice(0, 4), m = +calMes.slice(5, 7), nDias = U.diasNoMes(y, m);
     var primeiro = calMes + '-01', desloc = U.dowIso(primeiro); /* 0 = domingo */
     var porDia = {};
-    s.compromissos.forEach(function (c) { if (c.data && c.data.slice(0, 7) === calMes) (porDia[c.data] = porDia[c.data] || []).push(c); });
+    PS.rep.expandir(s.compromissos, calMes + '-01', calMes + '-31').forEach(function (c) { if (c.data && c.data.slice(0, 7) === calMes) (porDia[c.data] = porDia[c.data] || []).push(c); });
     function ir(n) { calMes = U.somaMes(calMes, n); calSel = U.dataNoMes(calMes, +calSel.slice(8, 10)); PS.redesenhar(); }
     var cab = U.DIAS_CURTOS.map(function (d) { return h('span', { class: 'cal-dow' }, d); });
     var celulas = [];
@@ -190,8 +171,8 @@
     var evs = D.ordenarCompromissos(porDia[calSel] || []);
     var lista = evs.length ? evs.map(function (c) {
       var passou = c.data === hoje && c.hora && (+c.hora.slice(0, 2) * 60 + +c.hora.slice(3)) < ag.h * 60 + ag.mi - 30;
-      return h('button', { class: 'item' + (passou ? ' passado' : ''), type: 'button', 'data-fid': 'cp:' + c.id, onclick: function () { detalheCompromisso(c); } },
-        h('span', { class: 'hora' }, c.hora || 'Dia todo'), h('span', { class: 't' }, c.titulo, tagExemplo(c)), c.local ? h('span', { class: 'meta' }, [I('pin'), ' ' + c.local]) : null);
+      return h('button', { class: 'item' + (passou ? ' passado' : ''), type: 'button', 'data-fid': 'cp:' + c.id + (c.origem ? '@' + c.data : ''), onclick: function () { detalheCompromisso(c); } },
+        h('span', { class: 'hora' }, c.hora || 'Dia todo'), h('span', { class: 't' }, c.titulo, tagExemplo(c), tagPor(c)), c.local ? h('span', { class: 'meta' }, [I('pin'), ' ' + c.local]) : null);
     }) : h('p', { class: 'vazio' }, 'Sem compromissos neste dia');
     return h('div', null,
       h('h1', { class: 'titulo-tela' }, 'Agenda', h('small', null, 'mês inteiro')),
@@ -205,24 +186,11 @@
       h('p', { class: 'nota' }, 'Para cadastrar ou importar um arquivo .ics, use Gerenciar → Agenda.'));
   } };
 
-  /* ---------- FAMÍLIA ---------- */
-  views.familia = { reativo: true, titulo: 'Família', render: function () {
-    var s = S.get(), hoje = U.hoje(), m0 = U.ym(hoje);
-    var lems = s.lembretes.map(function (l) { var o = D.ocorrenciaVisivel(D.ocorrenciasLembrete(l, hoje), hoje); return { l: l, data: o.data, chave: o.chave, feito: o.feito }; }).sort(function (a, b) {
-      if (!a.data !== !b.data) return a.data ? 1 : -1;                    /* pendências sem data primeiro */
-      if (!a.data) return a.feito !== b.feito ? (a.feito ? 1 : -1) : 0;
-      return a.data < b.data ? -1 : 1;
-    });
-    var li = lems.map(function (x) {
-      return h('button', { class: 'item dupla' + (x.feito ? ' feito' : ''), type: 'button', role: 'checkbox', 'aria-checked': x.feito ? 'true' : 'false', 'data-fid': 'lm:' + x.l.id,
-        onclick: function () { S.alterar(function (st) { st.lembretes.forEach(function (y) { if (y.id === x.l.id) { if (!y.dia) { y.feito = !y.feito; return; } y.feitos = y.feitos || {}; if (y.feitos[x.chave]) delete y.feitos[x.chave]; else y.feitos[x.chave] = true; } }); }); } },
-        caixa(x.feito), x.l.icone ? I(x.l.icone, 'ic-fam') : null, h('span', { class: 't' }, x.l.titulo, tagExemplo(x.l), x.l.obs ? h('small', null, x.l.obs) : null),
-        x.feito ? selo('ok', 'check', 'Feito') : (x.data ? seloVenc('', x.data, hoje, false) : selo(x.l.prio === 'alta' ? 'aviso' : 'neutro', x.l.prio === 'alta' ? 'alerta' : 'sino', x.l.prio === 'alta' ? 'Pendente · alta' : 'Pendente')));
-    });
-    return h('div', null, h('h1', { class: 'titulo-tela' }, 'Família e contas', h('small', null, 'toque OK para marcar')),
-      h('div', { class: 'duas-colunas' },
-        cartao('Lembretes', 'sino', li.length ? li : h('p', { class: 'vazio' }, 'Nenhum lembrete. Cadastre em Gerenciar → Família.')),
-        PS.finUI.painel(s, hoje)));
+  /* ---------- CONTAS A PAGAR (antiga Família) ---------- */
+  views.contas = { reativo: true, titulo: 'Contas a pagar', render: function () {
+    var s = S.get(), hoje = U.hoje();
+    return h('div', null, h('h1', { class: 'titulo-tela' }, 'Contas a pagar', h('small', null, 'toque na conta para ver e editar')),
+      h('div', { class: 'contas-tela' }, PS.finUI.painel(s, hoje)));
   } };
 
   /* ---------- RELAXAR ---------- */
@@ -243,12 +211,12 @@
     var dados = null, erro = null;
     try { dados = S.sanear(S.lerLink(param || '')); } catch (e) { erro = 'Link inválido ou incompleto.'; }
     if (erro) return h('div', null, h('h1', { class: 'titulo-tela' }, 'Importar configuração'), h('p', { class: 'nota aviso' }, erro + ' Peça um novo link em Gerenciar → Backup, ou use o arquivo JSON.'), h('div', { class: 'acoes' }, h('a', { class: 'btn primario', href: '#/' }, 'Voltar ao Hoje')));
-    var resumo = [dados.habitos.length + ' hábitos', dados.tarefas.length + ' tarefas', dados.compromissos.length + ' compromissos', dados.lembretes.length + ' lembretes', dados.contas.length + ' contas', dados.links.length + ' links', 'cidade ' + dados.config.cidade];
+    var resumo = [dados.tarefas.length + ' tarefas', dados.compromissos.length + ' compromissos', dados.contas.length + ' contas', dados.links.length + ' links', 'cidade ' + dados.config.cidade];
     return h('div', null, h('h1', { class: 'titulo-tela' }, 'Importar configuração'),
       h('div', { class: 'cartao' }, h('p', null, 'Este link traz:'), h('p', { class: 'foco', style: 'margin-top:.4rem' }, resumo.join(' · ')),
-        h('p', { class: 'nota aviso' }, 'Importar SUBSTITUI os dados atuais deste aparelho (o histórico de hábitos é mantido).')),
+        h('p', { class: 'nota aviso' }, 'Importar SUBSTITUI os dados atuais deste aparelho.')),
       h('div', { class: 'acoes' },
-        h('button', { class: 'btn primario', type: 'button', onclick: function () { S.substituir(dados, true); PS.aplicarConfig(); PS.aviso('Configuração importada'); g.location.hash = '#/'; } }, 'Importar e substituir'),
+        h('button', { class: 'btn primario', type: 'button', onclick: function () { S.substituir(dados); PS.aplicarConfig(); PS.aviso('Configuração importada'); g.location.hash = '#/'; } }, 'Importar e substituir'),
         h('a', { class: 'btn', href: '#/' }, 'Cancelar')));
   } };
 

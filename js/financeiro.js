@@ -1,4 +1,4 @@
-/* Minha Casa em Ordem — domínio financeiro PURO (sem DOM): pendências ("Atenção agora"), pago/em aberto, histórico, lembretes e .ics.
+/* Minha Casa em Ordem — domínio financeiro PURO (sem DOM): pendências ("Atenção agora"), pago/em aberto, histórico, avisos de vencimento e .ics.
    Contas de casa e faturas do cartão. Nada é marcado como pago automaticamente: só por ação manual (com data).
    Testado em Node: node tools/teste-financeiro.js */
 (function (g) {
@@ -91,14 +91,14 @@
     function add(o) {
       o.dias = U.difDias(o.data, hoje); o.nivel = nivelDe(o.dias);
       o.aviso = o.forma ? avisoDe(o.forma, o.dias) : '';
-      o.destaque = o.tipo !== 'lembrete' && o.dias <= 5;                  /* "Atenção agora": contas/faturas até 5 dias (ou já vencidas) */
+      o.destaque = o.dias <= 5;                                          /* "Atenção agora": contas/faturas até 5 dias (ou já vencidas) */
       out.push(o);
     }
     (s.contas || []).forEach(function (c) {
       ocorrenciasConta(c, hoje, s).forEach(function (o) {
         if (o.paga || o.data > lim) return;
         if (U.difDias(o.data, hoje) < -62) return;                        /* não arrasta lixo antigo para sempre */
-        add({ tipo: 'conta', id: c.id, chave: o.chave, titulo: c.titulo, icone: c.icone || 'carteira', data: o.data, valor: o.valor, dono: c.dono, forma: c.forma || '', obs: c.obs || '', href: '#/familia' });
+        add({ tipo: 'conta', id: c.id, chave: o.chave, titulo: c.titulo, icone: c.icone || 'carteira', data: o.data, valor: o.valor, dono: c.dono, forma: c.forma || '', obs: c.obs || '', href: '#/contas' });
       });
     });
     (s.faturas || []).forEach(function (f) {
@@ -108,17 +108,7 @@
       var cc = contaDoCartao(s, f);
       add({ tipo: 'fatura', id: f.id, chave: f.mes || '', titulo: 'Fatura ' + (ct ? ct.apelido : (f.cartao || 'do cartão')), icone: 'cartao', data: f.vencimento, valor: f.valor, dono: f.dono || (ct && ct.dono) || '', forma: cc ? cc.forma : '', obs: cc ? cc.obs : '', href: '#/cartoes' });
     });
-    (s.lembretes || []).forEach(function (l) {
-      if (!l.dia) return;
-      var m0 = U.ym(hoje);
-      [0, 1].forEach(function (i) {
-        var m = U.somaMes(m0, i), d = U.dataNoMes(m, l.dia), feito = !!(l.feitos && l.feitos[m]);
-        if (feito || d > lim) return;
-        if (d < hoje && U.ym(d) !== m0) return;
-        add({ tipo: 'lembrete', id: l.id, chave: m, titulo: l.titulo, icone: l.icone || 'sino', data: d, valor: null, obs: l.obs, href: '#/familia' });
-      });
-    });
-    var peso = { fatura: 0, conta: 1, lembrete: 2 };
+    var peso = { fatura: 0, conta: 1 };
     out.sort(function (a, b) { return a.dias - b.dias || peso[a.tipo] - peso[b.tipo] || (a.titulo < b.titulo ? -1 : 1); });
     return out;
   };
@@ -126,18 +116,17 @@
   /* contadores para badge/rodapé */
   F.resumo = function (pend) {
     var r = { vencidas: 0, hoje: 0, amanha: 0, semana: 0, total: pend.length, valor: 0 };
-    pend.forEach(function (p) { r[p.nivel === 'vencida' ? 'vencidas' : p.nivel === 'hoje' ? 'hoje' : p.nivel === 'amanha' ? 'amanha' : 'semana']++; if (p.valor != null && p.tipo !== 'lembrete') r.valor += p.valor; });
+    pend.forEach(function (p) { r[p.nivel === 'vencida' ? 'vencidas' : p.nivel === 'hoje' ? 'hoje' : p.nivel === 'amanha' ? 'amanha' : 'semana']++; if (p.valor != null) r.valor += p.valor; });
     r.urgentes = r.vencidas + r.hoje;
     return r;
   };
 
   /* ---------- pago / em aberto (manual) ---------- */
-  function achar(s, tipo, id) { var l = tipo === 'fatura' ? s.faturas : tipo === 'lembrete' ? s.lembretes : s.contas; return (l || []).filter(function (x) { return x.id === id; })[0]; }
+  function achar(s, tipo, id) { var l = tipo === 'fatura' ? s.faturas : s.contas; return (l || []).filter(function (x) { return x.id === id; })[0]; }
   F.marcarPaga = function (s, tipo, id, chave, data) {
     var x = achar(s, tipo, id); if (!x) return false;
     data = U.dataValida(data) ? data : U.hoje();
     if (tipo === 'fatura') { x.status = 'paga'; x.pagaEm = data; return true; }
-    if (tipo === 'lembrete') { x.feitos = x.feitos || {}; x.feitos[chave] = true; if (!x.dia) x.feito = true; return true; }
     if ((!x.mensal && !x.anual) || chave === 'avulsa') { x.paga = true; x.pagaEm = data; return true; }
     x.pagas = x.pagas || {}; x.pagas[chave] = data;
     x.valores = x.valores || {}; if (x.valor != null && x.valores[chave] == null) x.valores[chave] = x.valor;   /* guarda o valor pago neste mês (histórico) */
@@ -159,7 +148,6 @@
   F.desfazerPaga = function (s, tipo, id, chave) {
     var x = achar(s, tipo, id); if (!x) return false;
     if (tipo === 'fatura') { x.status = 'aberta'; x.pagaEm = ''; return true; }
-    if (tipo === 'lembrete') { if (x.feitos) delete x.feitos[chave]; x.feito = false; return true; }
     if ((!x.mensal && !x.anual) || chave === 'avulsa') { x.paga = false; x.pagaEm = ''; return true; }
     if (x.pagas) delete x.pagas[chave];
     return true;
@@ -229,7 +217,7 @@
     return { meses: meses, porCategoria: porCat };
   };
 
-  /* total do mês corrente em Família: a pagar / pago */
+  /* total do mês corrente em Contas a pagar: a pagar / pago */
   F.totaisDoMes = function (s, hoje) {
     var m = U.ym(hoje), r = { aPagar: 0, pago: 0, n: 0, nPagas: 0 };
     (s.contas || []).forEach(function (c) {
@@ -248,9 +236,8 @@
     if (hora != null && hora < 8) return [];                              /* nada de aviso de madrugada */
     var ant = antecedencia && antecedencia.length ? antecedencia : [3, 1, 0], max = Math.max(Math.max.apply(null, ant), GERAR_ANTES), out = [];
     F.pendencias(s, hoje, max).forEach(function (p) {
-      if (p.tipo === 'lembrete' && p.dias !== 0) return;
       var base = p.tipo + ':' + p.id + ':' + p.chave;
-      var corpo = F.rotuloNivel(p.dias) + (p.valor != null && p.tipo !== 'lembrete' ? ' · ' + U.valorBRL(p.valor) : '') + (p.aviso ? ' · ' + p.aviso : '');
+      var corpo = F.rotuloNivel(p.dias) + (p.valor != null ? ' · ' + U.valorBRL(p.valor) : '') + (p.aviso ? ' · ' + p.aviso : '');
       function emitir(chave, titulo, txt) { if (!enviados[chave]) out.push({ chave: chave, titulo: titulo, corpo: txt, dias: p.dias, tipo: p.tipo, href: p.href }); }
       if (p.dias < 0) emitir(base + ':atraso:' + hoje, 'Atrasada: ' + p.titulo, corpo);
       else {
@@ -293,7 +280,7 @@
   /* .ics com as pendências atuais (contas + faturas, não pagas) */
   F.icsDasPendencias = function (s, hoje, antecedencia, agoraIso) {
     var itens = [];
-    F.pendencias(s, hoje, 60).filter(function (p) { return p.tipo !== 'lembrete' && p.dias >= 0; }).forEach(function (p) {
+    F.pendencias(s, hoje, 60).filter(function (p) { return p.dias >= 0; }).forEach(function (p) {
       var rf = F.rotuloFormaLonga(p.forma), alarmes = (antecedencia && antecedencia.length ? antecedencia : [3, 1, 0]).slice();
       if (p.forma === 'debito' && alarmes.indexOf(1) < 0) alarmes.push(1);
       var extra = (rf ? ' Forma: ' + rf + (p.obs ? ' (' + p.obs + ')' : '') + '.' : (p.obs ? ' ' + p.obs + '.' : '')) + (p.forma === 'debito' ? ' Débito automático: confira o saldo na conta. O painel não confirma o débito.' : '') + (p.forma === 'gerar' ? ' Gere o boleto antes de pagar.' : '');
@@ -310,7 +297,6 @@
   F.agendaParaSW = function (s, hoje, antecedencia) {
     var ant = antecedencia && antecedencia.length ? antecedencia : [3, 1, 0], out = [];
     F.pendencias(s, U.somaDias(hoje, 0), Math.max.apply(null, ant) + 45).forEach(function (p) {
-      if (p.tipo === 'lembrete') return;
       ant.forEach(function (a) { out.push({ chave: p.tipo + ':' + p.id + ':' + p.chave + ':d' + a, avisar: U.somaDias(p.data, -a), titulo: p.titulo, corpo: F.rotuloNivel(a) + (avisoDe(p.forma, a) ? ' · ' + avisoDe(p.forma, a) : '') }); });
       if (p.forma === 'gerar' && ant.indexOf(GERAR_ANTES) < 0) out.push({ chave: p.tipo + ':' + p.id + ':' + p.chave + ':gerar', avisar: U.somaDias(p.data, -GERAR_ANTES), titulo: 'Gerar boleto: ' + p.titulo, corpo: F.rotuloNivel(GERAR_ANTES) });
       if (p.forma === 'debito' && ant.indexOf(1) < 0) out.push({ chave: p.tipo + ':' + p.id + ':' + p.chave + ':saldo', avisar: U.somaDias(p.data, -1), titulo: p.titulo, corpo: F.rotuloNivel(1) + ' · Confira o saldo na conta' });

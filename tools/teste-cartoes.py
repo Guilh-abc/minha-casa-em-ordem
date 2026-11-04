@@ -26,7 +26,7 @@ with sync_playwright() as p:
     pg = ctx.new_page(); erros = []
     pg.on('pageerror', lambda e: erros.append(str(e)))
     pg.goto(base + '#/'); pg.wait_for_selector('.hoje')
-    pg.evaluate("PS.store.alterar(function(s){s.faturas=[];s.cartoes=[];s.lancs=[];s.contas=[];s.lembretes=[];},true)")
+    pg.evaluate("PS.store.alterar(function(s){s.faturas=[];s.cartoes=[];s.lancs=[];s.contas=[];},true)")
     pg.evaluate("location.hash='#/cartoes'"); pg.wait_for_selector('.cartoes')
     check('Nenhuma fatura' in pg.inner_text('.cartoes'), 'estado vazio explica como começar')
     for nome, esp in [('nubank-sintetico.pdf', tot['nubank-sintetico.pdf']), ('itau-sintetico.pdf', tot['itau-sintetico.pdf']), ('bradesco-sintetico.pdf', tot['bradesco-sintetico.pdf'])]:

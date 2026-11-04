@@ -3,10 +3,8 @@
 (function (g) {
   'use strict';
   var PS = g.PS = g.PS || {};
-  var U = PS.u, h = U.h, I = PS.icone, S = PS.store, C = PS.consultas;
-  var BASE = g.MCO_ASSISTENTE_URL || 'https://minha-casa-assistente.guilhermeromionetto.workers.dev';
-  var URL_API = BASE + '/chat', URL_LER = BASE + '/ler';
-  var LADO_MAX = 1280, MAX_DATAURL = 1400000;   /* a foto é reduzida no aparelho e nunca é guardada */
+  var U = PS.u, h = U.h, I = PS.icone, S = PS.store, C = PS.consultas, G = PS.gemini;
+  var BASE = g.MCO_ASSISTENTE_URL || 'https://minha-casa-assistente.guilhermeromionetto.workers.dev', URL_API = BASE + '/chat', URL_CONVERSA = BASE + '/conversa';
   var conversa = [];   /* { papel: 'user'|'assistant', texto, sugestao } só na memória da aba */
   var enviando = false;
 
@@ -30,131 +28,91 @@
     l.push('TAREFAS PENDENTES:');
     tf.forEach(function (t) { l.push('- ' + t.titulo + ' [' + t.lista + ', prioridade ' + t.prio + (t.vence ? ', até ' + t.vence : '') + ']'); });
     if (!tf.length) l.push('- nenhuma');
-    var cp = (s.compromissos || []).filter(real).filter(function (c) { return c.data >= hoje && c.data <= fim; }).sort(function (a, b) { return (a.data + a.hora) < (b.data + b.hora) ? -1 : 1; }).slice(0, 40);
+    var cp = PS.rep.expandir(s.compromissos || [], hoje, fim).filter(real).filter(function (c) { return c.data >= hoje && c.data <= fim; }).sort(function (a, b) { return (a.data + a.hora) < (b.data + b.hora) ? -1 : 1; }).slice(0, 40);
     l.push('AGENDA (próximos 45 dias):');
     cp.forEach(function (c) { l.push('- ' + c.data + (c.hora ? ' ' + c.hora : '') + ': ' + c.titulo + (c.local ? ' (' + c.local + ')' : '')); });
     if (!cp.length) l.push('- nada marcado');
-    var lb = (s.lembretes || []).filter(real).filter(function (x) { return !x.feito; }).slice(0, 30);
-    if (lb.length) { l.push('LEMBRETES MENSAIS:'); lb.forEach(function (x) { l.push('- ' + x.titulo + (x.dia ? ' (dia ' + x.dia + ')' : ' (sem data)')); }); }
     return l.join('\n').slice(0, 12000);
   }
 
-  /* extrai <<SUGESTAO {...}>> e valida; devolve { texto, sugestao|null } */
-  function separar(txt, podeSugerir) {
-    var r = C.extrairSugestoes(txt), sug = null, o = podeSugerir ? r.sugestoes[0] : null;
-    if (o) {
-      var t = String(o.titulo || '').slice(0, 120).trim();
-      if (t && o.tipo === 'tarefa') sug = { tipo: 'tarefa', titulo: t, data: U.dataValida(o.data) ? o.data : '' };
-      else if (t && o.tipo === 'conta' && U.dataValida(o.vence)) sug = { tipo: 'conta', titulo: t.slice(0, 80), vence: o.vence, valor: isFinite(Number(o.valor)) && Number(o.valor) > 0 ? Math.round(Number(o.valor) * 100) / 100 : null };
-      else if (t && o.tipo === 'compromisso' && U.dataValida(o.data)) sug = { tipo: 'compromisso', titulo: t, data: o.data, hora: U.horaValida(o.hora) ? o.hora : '' };
-    }
-    var tx = r.texto.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(^|\s)\*([^*\n]+)\*(?=\s|[.,!?]|$)/g, '$1$2').replace(/^\s*-{3,}\s*$/gm, '').trim();
-    return { texto: tx, sugestao: sug };
+  /* extrai os blocos <<SUGESTAO>> (parser tolerante) e limpa o texto; pergunta: só aceita títulos que vieram do pedido */
+  function separar(txt, pergunta) {
+    var r = C.lerSugestoes(txt || '', U.hoje()), sugs = r.sugestoes;
+    if (pergunta != null) sugs = sugs.filter(function (x) { return C.sugestaoFiel(x, pergunta); });
+    var t = String(r.texto || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(^|\s)\*([^*\n]+)\*(?=\s|[.,!?]|$)/g, '$1$2').replace(/^\s*-{3,}\s*$/gm, '').trim();
+    return { texto: t, sugestoes: sugs, recusadas: r.sugestoes.length - sugs.length, sugestao: sugs[0] || null };
   }
   function descSug(x) {
+    if (x.tipo === 'compras') return 'Lista de compras: ' + (x.itens || []).join(', ');
     if (x.tipo === 'tarefa') return 'Nova tarefa: ' + x.titulo + (x.data ? ', até ' + U.dataCurta(x.data) : '');
     if (x.tipo === 'conta') return 'Nova conta (avulsa): ' + x.titulo + ', ' + brl(x.valor) + ', vence ' + U.dataCurta(x.vence);
     return 'Novo compromisso: ' + x.titulo + ', ' + U.dataCurta(x.data) + (x.hora ? ' às ' + x.hora : '');
   }
+  var ROT_GRAVOU = { compras: 'Itens salvos na Lista de compras', tarefa: 'Tarefa salva em Tarefas', conta: 'Conta salva em Contas a pagar', compromisso: 'Compromisso salvo na Agenda' };
   function gravar(x) {
     S.alterar(function (s) {
       var it;
-      if (x.tipo === 'tarefa') { it = S.sanearItem('tarefas', null, { titulo: x.titulo, vence: x.data, lista: s.listas[0], prio: 'media' }); if (it) s.tarefas.push(it); }
+      if (x.tipo === 'compras') { (x.itens || []).forEach(function (n) { var c = S.sanearItem('compras', null, { nome: n }); if (c) s.compras.unshift(c); }); }
+      else if (x.tipo === 'tarefa') { it = S.sanearItem('tarefas', null, { titulo: x.titulo, vence: x.data, lista: s.listas[0], prio: 'media' }); if (it) { s.tarefas.push(it); PS.focarLista = it.lista; } }
       else if (x.tipo === 'conta') { it = S.sanearItem('contas', null, { titulo: x.titulo, mensal: false, data: x.vence, dia: +x.vence.slice(8, 10), valor: x.valor }); if (it) s.contas.push(it); }
       else { it = S.sanearItem('compromissos', null, { titulo: x.titulo, data: x.data, hora: x.hora, fonte: 'manual' }); if (it) s.compromissos.push(it); }
     });
+    return ROT_GRAVOU[x.tipo] || ROT_GRAVOU.compromisso;
   }
-
-  /* grava UMA sugestão vinda da leitura de foto/print (já normalizada por PS.leitura). Devolve o texto de resultado. */
-  function gravarLeitura(sg) {
-    var d = sg.dados, res = 'Gravado no app.';
-    S.alterar(function (s) {
-      var it;
-      if (sg.acao === 'conta') {
-        if (s.contas.some(function (c) { return !c.mensal && c.data === d.data && c.valor === d.valor && c.titulo.toLowerCase() === String(d.titulo).toLowerCase(); })) { res = 'Já existia uma conta igual. Nada foi gravado.'; return; }
-        it = S.sanearItem('contas', null, { titulo: d.titulo, mensal: false, data: d.data, dia: +d.data.slice(8, 10), valor: d.valor, obs: d.linha ? 'Linha ' + d.linha : '' }); if (it) s.contas.push(it);
-      } else if (sg.acao === 'pagar') {
-        var ab = PS.fin.listas(s, U.hoje()).abertas.some(function (x) { return x.tipo === d.tipo && x.id === d.id && x.chave === d.chave; });
-        if (!ab) { res = 'Essa conta já estava paga. Nada foi alterado.'; return; }
-        PS.fin.marcarPaga(s, d.tipo, d.id, d.chave, d.pagaEm); res = 'Marcada como paga.';
-      } else if (sg.acao === 'compromisso') {
-        if (s.compromissos.some(function (c) { return c.data === d.data && c.titulo.toLowerCase() === d.titulo.toLowerCase(); })) { res = 'Já estava na agenda. Nada foi gravado.'; return; }
-        it = S.sanearItem('compromissos', null, { titulo: d.titulo, data: d.data, hora: d.hora, local: d.local, fonte: 'manual' }); if (it) s.compromissos.push(it);
-      } else if (sg.acao === 'lembrete') {
-        it = S.sanearItem('lembretes', null, { titulo: d.titulo, dia: 0, obs: d.obs, prio: 'media' }); if (it) s.lembretes.push(it);
-      } else if (sg.acao === 'tarefa') {
-        if (s.tarefas.some(function (t) { return !t.feita && t.titulo.toLowerCase() === d.titulo.toLowerCase(); })) { res = 'Já existe essa tarefa pendente.'; return; }
-        it = S.sanearItem('tarefas', null, { titulo: d.titulo, lista: s.listas[0], prio: 'media' }); if (it) s.tarefas.push(it);
-      } else if (sg.acao === 'gasto') {
-        /* gasto avulso (cupom fiscal): lançamento sem cartão, fatura 'avulso' */
-        if (s.lancs.some(function (l) { return l.fatura === 'avulso' && l.data === d.data && l.valor === d.valor && l.desc === d.titulo.slice(0, 80); })) { res = 'Esse cupom já foi lançado. Nada foi gravado.'; return; }
-        it = S.sanearItem('lancs', null, { fatura: 'avulso', data: d.data, desc: d.titulo, valor: d.valor || 0, cat: d.cat, catBanco: 'cupom' }); if (it) s.lancs.push(it);
-      } else res = 'Nada a gravar.';
-      if (!it && /^Gravado/.test(res)) res = 'Não consegui gravar (dados inválidos).';
-    });
-    return res;
-  }
-  /* reduz a foto no aparelho: lado maior até 1280 px, JPEG 0,8 (cai para 0,6 se ainda ficar grande) */
-  /* reduz no aparelho: objectURL (não carrega 8 MB em base64 na memória), <img> aplica a rotação EXIF, canvas JPEG */
-  function reduzir(arquivo, cb) {
-    var tipo = String(arquivo && arquivo.type || '').toLowerCase(), nome = String(arquivo && arquivo.name || '').toLowerCase();
-    if (!arquivo) { cb('Escolha uma imagem.'); return; }
-    if (/hei[cf]/.test(tipo) || /\.hei[cf]$/.test(nome)) { cb('Foto em HEIC não é suportada neste navegador. Tire a foto pelo botão "Tirar foto" ou salve como JPEG.'); return; }
-    if (tipo && !/^image\//.test(tipo)) { cb('Escolha uma imagem.'); return; }
-    var feito = false, cb0 = cb, src = ''; cb = function (e, u, w, hh) { if (feito) return; feito = true; if (src) { try { URL.revokeObjectURL(src); } catch (x) { } } cb0(e, u, w, hh); };   /* uma única resposta */
-    var img = new Image();
-    img.onerror = function () { cb('Não consegui abrir essa imagem (formato não suportado). Tente outra foto ou um print.'); };
-    img.onload = function () {
-      try {
-        var esc = Math.min(1, LADO_MAX / Math.max(img.width, img.height)), w = Math.max(1, Math.round(img.width * esc)), hh = Math.max(1, Math.round(img.height * esc));
-        var cv = document.createElement('canvas'); cv.width = w; cv.height = hh;
-        var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, hh); cx.drawImage(img, 0, 0, w, hh);
-        var url = cv.toDataURL('image/jpeg', 0.8); if (url.length > MAX_DATAURL) url = cv.toDataURL('image/jpeg', 0.6);
-        cv.width = cv.height = 0; img.onload = img.onerror = null; img.removeAttribute('src');
-        if (!/^data:image\/jpeg;base64,/.test(url)) { cb('Este aparelho não conseguiu reduzir a imagem. Tente um print da tela.'); return; }
-        if (url.length > MAX_DATAURL) { cb('Imagem grande demais mesmo reduzida. Tente aproximar só o documento.'); return; }
-        cb('', url, w, hh);
-      } catch (e) { cb('Este aparelho não conseguiu reduzir a imagem (memória). Tente um print da tela.'); }
-    };
-    try { src = URL.createObjectURL(arquivo); img.src = src; } catch (e) { cb('Não consegui abrir a imagem.'); }
-  }
-  /* erro de rede/HTTP -> mensagem específica (nunca "sem conexão" quando o aparelho está online) */
-  function erroLeitura(st, j, abortou) {
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'Você está sem internet agora. Conecte e tente de novo.';
-    if (abortou) return 'A leitura demorou demais. Tente de novo com a foto mais próxima do documento.';
-    if (st === 413) return 'Imagem grande demais para enviar. Tente aproximar só o documento.';
-    if (st === 429) return (j && j.erro) || 'Limite de leituras atingido. Espere alguns minutos e tente de novo.';
-    if (st === 422) return (j && j.erro) || 'Não consegui ler o documento. Tente uma foto mais nítida e com boa luz.';
-    if (st === 404 || st === 405) return 'A leitura de fotos está indisponível no servidor agora. Tente mais tarde.';
-    if (st >= 500) return 'O serviço de leitura falhou (' + st + '). Tente de novo em instantes.';
-    if (st) return 'Falha na leitura (' + st + ')' + (j && j.erro ? ': ' + j.erro : '.');
-    return 'Não consegui falar com o serviço de leitura (bloqueio de rede ou servidor indisponível). Tente de novo.';
+  /* Editar: tarefa e compromisso usam a mesma revisão da foto (que salva no destino escolhido); conta tem formulário próprio */
+  function editarSug(x, fim) {
+    if (x.tipo === 'compras') {
+      var ta = h('textarea', { class: 'entrada', rows: '5', 'data-fid': 'ass-compras-itens' }); ta.value = (x.itens || []).join('\n');
+      return PS.modal.abrir('Itens para a Lista de compras', h('label', { class: 'campo' }, h('span', null, 'Um item por linha'), ta), [{ rotulo: 'Cancelar' },
+        { rotulo: 'Salvar', tipo: 'primario', acao: function () { var its = ta.value.split('\n').map(function (z) { return z.trim().slice(0, 80); }).filter(Boolean); if (!its.length) return; var m = gravar({ tipo: 'compras', itens: its }); PS.aviso(m); fim(m); } }]);
+    }
+    if (x.tipo !== 'conta') return PS.foto.revisar({ destino: x.tipo === 'tarefa' ? 'tarefa' : 'agenda', titulo: x.titulo || '', data: x.data || '', hora: x.hora || '', local: '', valor: null, nome: '', preco: null, unidade: '' }, '', fim);
+    var c = { titulo: x.titulo || '', vence: x.vence || U.hoje(), valor: x.valor == null ? '' : String(x.valor).replace('.', ',') };
+    function entrada(rot, k, at) { var a = { class: 'entrada', 'data-fid': 'ass-conta-' + k, value: c[k], oninput: function () { c[k] = this.value; } }; Object.keys(at || {}).forEach(function (z) { a[z] = at[z]; }); return h('label', { class: 'campo' }, h('span', null, rot), h('input', a)); }
+    PS.modal.abrir('Nova conta', h('div', { class: 'campos ft-revisao' }, entrada('Título', 'titulo', { maxlength: '80' }), entrada('Vence', 'vence', { type: 'date' }), entrada('Valor (R$)', 'valor', { inputmode: 'decimal', placeholder: '0,00' })), [
+      { rotulo: 'Cancelar' },
+      { rotulo: 'Salvar', tipo: 'primario', acao: function () {
+        var y = { tipo: 'conta', titulo: String(c.titulo).trim().slice(0, 80), vence: c.vence, valor: C.valorSug(c.valor) };
+        if (!y.titulo || !U.dataValida(y.vence)) { x.titulo = y.titulo; x.vence = y.vence; return editarSug(x, fim); }
+        var m = gravar(y); PS.aviso(m); fim(m);
+      } }]);
   }
 
   function balao(m, i, desenhar) {
-    var filhos = [h('p', { class: 'ass-autor' }, m.papel === 'user' ? 'Você' : 'Ajudante'), h('div', { class: 'ass-texto' }, m.papel === 'user' ? m.texto : C.textoFinal(C.extrairSugestoes(m.texto).texto, m.leituras || m.sugestao ? ' ' : ''))];
-    if (m.sugestao) {
-      var sg = m.sugestao;
-      filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Sugestão de lançamento' },
+    var filhos = [h('p', { class: 'ass-autor' }, m.papel === 'user' ? 'Você' : 'Ajudante'), h('div', { class: 'ass-texto' }, m.texto)];
+    var sugs = m.sugestoes || (m.sugestao ? [m.sugestao] : []);
+    if (m.lugares) filhos.push(h('ul', { class: 'ass-lugares', 'data-fid': 'ass-lugares' }, m.lugares.map(function (l, k) {
+      var linha = [l.nota != null ? '★ ' + String(l.nota).replace('.', ',') + (l.avaliacoes != null ? ' (' + l.avaliacoes + ' avaliações)' : '') : 'sem nota', l.preco || l.faixa || '', l.dist != null ? C.rotDist(l.dist) : '', l.aberto === true ? 'aberto agora' : l.aberto === false ? 'fechado agora' : ''].filter(Boolean).join(' · ');
+      return h('li', { class: 'ass-lugar', 'data-fid': 'ass-lugar-' + k }, h('strong', null, l.nome), h('span', { class: 'ass-lugar-info' }, linha),
+        l.resumo ? h('span', { class: 'ass-lugar-resumo' }, l.resumo) : null,
+        l.maps ? h('a', { class: 'btn', href: l.maps, target: '_blank', rel: 'noopener', 'data-fid': 'ass-lugar-maps-' + k }, 'Abrir no Google Maps') : null);
+    })));
+    if (m.bairro) {
+      var cb = h('input', { class: 'entrada', type: 'text', maxlength: '120', autocomplete: 'address-level2', placeholder: 'Digite bairro, endereço ou cidade', 'aria-label': 'Digite bairro, endereço ou cidade', 'data-fid': 'ass-bairro-' + i });
+      try { cb.value = localStorage.getItem('mco-bairro') || ''; } catch (e) {}
+      cb.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); PS.ajudanteBairro(cb.value); } });
+      filhos.push(h('div', { class: 'ass-bairro' }, cb, h('button', { class: 'btn primario', type: 'button', 'data-fid': 'ass-bairro-buscar-' + i, onclick: function () { PS.ajudanteBairro(cb.value); } }, 'Buscar restaurantes')));
+    }
+    if (m.link) filhos.push(h('a', { class: 'btn', href: m.link, target: '_blank', rel: 'noopener', 'data-fid': 'ass-maps' }, 'Buscar restaurantes no Google Maps'));
+    sugs.forEach(function (sg, k) {
+      var id = i + '-' + k;
+      function pronto(msg) { sg.feito = msg; desenhar(); }
+      filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Sugestão de lançamento', 'data-fid': 'ass-sug-' + id },
         h('p', null, I('alerta'), h('span', null, descSug(sg))),
         sg.feito ? h('p', { class: 'ass-ok' }, I('check'), h('span', null, sg.feito)) :
         h('div', { class: 'acoes' },
-          h('button', { class: 'btn primario', type: 'button', 'data-fid': 'ass-confirmar-' + i, onclick: function () { gravar(sg); sg.feito = 'Gravado no app.'; desenhar(); } }, 'Confirmar e gravar'),
-          h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-descartar-' + i, onclick: function () { sg.feito = 'Descartado. Nada foi gravado.'; desenhar(); } }, 'Descartar'))));
-    }
-    if (m.leituras && m.leituras.length) {
-      var pend = m.leituras.filter(function (x) { return !x.feito && x.acao !== 'nada'; });
-      m.leituras.forEach(function (sg, k) {
-        var fid = 'ass-ler-' + i + '-' + k;
-        filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Leitura para confirmar' },
-          h('p', null, I('alerta'), h('span', null, sg.resumo)),
-          sg.avisos.length ? h('ul', { class: 'ass-avisos' }, sg.avisos.map(function (a) { return h('li', null, a); })) : null,
-          sg.feito ? h('p', { class: 'ass-ok' }, I('check'), h('span', null, sg.feito)) : sg.acao === 'nada' ? null :
-          h('div', { class: 'acoes' },
-            h('button', { class: 'btn primario', type: 'button', 'data-fid': fid + '-confirmar', onclick: function () { sg.feito = gravarLeitura(sg); desenhar(); } }, 'Confirmar e gravar'),
-            h('button', { class: 'btn', type: 'button', 'data-fid': fid + '-descartar', onclick: function () { sg.feito = 'Descartado. Nada foi gravado.'; desenhar(); } }, 'Descartar'))));
-      });
-      if (pend.length > 1) filhos.push(h('div', { class: 'acoes' }, h('button', { class: 'btn primario', type: 'button', 'data-fid': 'ass-ler-' + i + '-todas', onclick: function () { pend.forEach(function (sg) { if (!sg.feito) sg.feito = gravarLeitura(sg); }); desenhar(); } }, 'Confirmar todas (' + pend.length + ')')));
+          h('button', { class: 'btn primario', type: 'button', 'data-fid': 'ass-confirmar-' + id, onclick: function () { pronto(gravar(sg) + '.'); } }, 'Confirmar'),
+          h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-editar-' + id, onclick: function () { editarSug(sg, function (msg) { pronto(msg + '.'); }); } }, 'Editar'),
+          h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-descartar-' + id, onclick: function () { pronto('Descartado. Nada foi gravado.'); } }, 'Descartar'))));
+    });
+    if (m.foto) {
+      var fc = m.foto;
+      filhos.push(h('div', { class: 'ass-sug', role: 'group', 'aria-label': 'Dados lidos da foto' },
+        fc.feito ? h('p', { class: 'ass-ok' }, I('check'), h('span', null, fc.feito)) :
+        h('div', { class: 'acoes' },
+          h('button', { class: 'btn primario', type: 'button', 'data-fid': 'ass-foto-salvar-' + i, onclick: function () { PS.foto.salvar(fc.c, function (msg) { fc.feito = msg + '.'; desenhar(); }); } }, 'Confirmar e salvar'),
+          h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-foto-editar-' + i, onclick: function () { PS.foto.revisar(fc.c, '', function (msg) { fc.feito = msg + '.'; desenhar(); }); } }, 'Editar'),
+          h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-foto-descartar-' + i, onclick: function () { fc.feito = 'Descartado. Nada foi salvo.'; desenhar(); } }, 'Descartar'))));
     }
     return h('li', { class: 'ass-msg ' + (m.papel === 'user' ? 'eu' : 'ia') }, filhos);
   }
@@ -169,25 +127,118 @@
       U.limpar(lista);
       if (!conversa.length) lista.appendChild(h('li', { class: 'vazio' }, 'Nenhuma pergunta ainda. O ajudante lê um resumo dos dados deste aparelho e só grava algo se você confirmar.'));
       conversa.forEach(function (m, i) { lista.appendChild(balao(m, i, desenhar)); });
-      btn.disabled = enviando; arquivo.disabled = galeria.disabled = enviando; if (!enviando) status.textContent = ''; else if (!status.textContent) status.textContent = 'Pensando…';
+      btn.disabled = enviando; status.textContent = enviando ? 'Pensando…' : '';
       lista.scrollTop = lista.scrollHeight;
     }
     function dadosConsulta() {
       var st = S.get(), ab = [];
       try { ab = PS.fin.listas(st, U.hoje()).abertas; } catch (e) { ab = []; }
       var ex = {}; (st.contas || []).forEach(function (c) { if (c.exemplo) ex[c.id] = 1; });
-      return { abertas: ab.filter(function (x) { return !ex[x.id]; }), compromissos: st.compromissos || [], tarefas: st.tarefas || [] };
+      return { abertas: ab.filter(function (x) { return !ex[x.id]; }), compromissos: PS.rep.expandir(st.compromissos || [], U.hoje(), U.somaDias(U.hoje(), 400)), tarefas: st.tarefas || [] };
     }
+    function abrirForm(tipo, fim) {
+      if (tipo === 'conta') return editarSug({ tipo: 'conta', titulo: '', vence: U.hoje(), valor: null }, fim);
+      editarSug({ tipo: tipo, titulo: '', data: '', hora: '' }, fim);
+    }
+    /* Gemini com ferramentas que rodam AQUI, sobre os dados reais; ele pergunta o que falta antes de sugerir; cartão só grava com Confirmar.
+       Se o Gemini falhar, cai para a Liquid (/chat). */
+    function viaGemini(texto, memo, reservaLiquid) {
+      var hj = U.hoje(), dd = dadosConsulta(), turnos = memo.concat([{ r: 'user', t: texto }]), resultados = [], sugs = [], rodada = 0;
+      var pedidos = [texto].concat(memo.filter(function (m) { return m.r === 'user'; }).slice(-3).map(function (m) { return m.t; }));
+      function fim() { enviando = false; desenhar(); campo.focus(); }
+      function passo() {
+        rodada++;
+        fetch(URL_CONVERSA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnos: turnos, hoje: hojeTexto() }) })
+          .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.', fallback: true }; }); })
+          .then(function (j) {
+            if (j && j.chamadas && j.chamadas.length && rodada < 5) {
+              var fr = j.chamadas.map(function (c) {
+                var res;
+                if (c.n === 'criar_sugestao') {
+                  var o = G.sugestao(c.a, pedidos, hj);
+                  if (o.sugestao && !C.sugestaoFiel(o.sugestao.tipo === 'compras' ? { titulo: o.sugestao.itens.join(' ') } : o.sugestao, pedidos.join(' '))) o = { erro: 'o título não veio do que o usuário disse; pergunte o que ele quer criar' };
+                  if (o.sugestao) sugs.push(o.sugestao); res = o.resultado || { erro: o.erro };
+                } else res = G.executar(c.n, c.a, dd, hj, agoraHHMM());
+                resultados.push(res); return { n: c.n, res: res };
+              });
+              turnos.push({ r: 'model', fc: j.chamadas }); turnos.push({ r: 'tool', fr: fr });
+              status.textContent = 'Consultando os dados do app…'; passo(); return;
+            }
+            if (j && j.resposta) {
+              var perm = G.permitido(resultados.concat(sugs, memo), hj), f = G.finalizar(j.resposta, perm);
+              if (f.fiel || (!f.texto && sugs.length)) conversa.push({ papel: 'assistant', texto: f.texto || 'Posso anotar isto:', sugestoes: sugs });
+              else responderLocal(G.reserva(texto, dd, hj, 'citou algo que não está nos seus dados, então descartei a resposta'));
+              return fim();
+            }
+            reservaLiquid();
+          })
+          .catch(function () { reservaLiquid(); });
+      }
+      passo();
+    }
+    /* restaurantes perto: localização só com permissão do aparelho; dados só do Google Places (via Worker); sem chave, link de busca no Maps */
+    /* corpo: { lat, lng } (localização) ou { texto } (bairro digitado). Dados só do Google Places via Worker. */
+    function buscarLugares(corpo, eu) {
+      var mapa = eu ? C.linkMaps(eu.lat, eu.lng) : 'https://www.google.com/maps/search/' + encodeURIComponent('restaurantes em ' + corpo.texto);
+      enviando = true; desenhar(); status.textContent = 'Buscando restaurantes…';
+      fetch(BASE + '/lugares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
+        .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
+        .then(function (j) {
+          var onde = eu ? 'perto de você' : 'em ' + corpo.texto;
+          if (j && j.lugares && j.lugares.length) {
+            if (!eu) { try { localStorage.setItem('mco-bairro', corpo.texto); } catch (e) {} }
+            j.lugares.forEach(function (l) { l.dist = eu && l.lat != null ? C.distancia(eu, l) : null; });
+            if (eu) j.lugares.sort(function (a, b) { return (a.dist == null ? 1e9 : a.dist) - (b.dist == null ? 1e9 : b.dist); });
+            conversa.push({ papel: 'assistant', texto: 'Restaurantes ' + onde + ' (dados do Google Maps):', local: true, lugares: j.lugares, link: mapa, bairro: !eu });
+          } else if (j && j.lugares) conversa.push({ papel: 'assistant', texto: 'O Google Maps não achou restaurantes ' + onde + '. Tente outro bairro ou abra o mapa:', local: true, link: mapa, bairro: true });
+          else conversa.push({ papel: 'assistant', texto: (j && j.semChave ? 'A busca com nota e avaliações ainda não está ligada: falta a chave do Google Maps Platform no servidor. Abra a busca no Google Maps:' : 'Não consegui buscar agora (' + ((j && j.erro) || 'erro') + '). Abra a busca no Google Maps:'), local: true, link: mapa, bairro: !eu });
+        })
+        .catch(function () { conversa.push({ papel: 'assistant', texto: 'Não consegui falar com o servidor. Abra a busca no Google Maps:', local: true, link: mapa, bairro: true }); })
+        .then(function () { enviando = false; desenhar(); });
+    }
+    function buscarBairro(txt) { txt = String(txt || '').trim().slice(0, 120); if (txt.length < 2 || enviando) return; conversa.push({ papel: 'user', texto: 'Restaurantes em ' + txt }); buscarLugares({ texto: txt }); }
+    PS.ajudanteBairro = buscarBairro;
+    /* restaurantes perto: localização só com permissão; aproximada vale (sem GPS fino, até 10 min de idade); se falhar, pede o bairro */
+    function restaurantes() {
+      var maps = 'https://www.google.com/maps/search/restaurantes+perto+de+mim';
+      function falhou(msg) { enviando = false; conversa.push({ papel: 'assistant', texto: msg + ' Digite abaixo um bairro, endereço ou cidade, ou abra o Google Maps.', local: true, link: maps, bairro: true }); desenhar(); }
+      if (!navigator.geolocation) return falhou('Este navegador não informa a localização.');
+      enviando = true; desenhar(); status.textContent = 'Pedindo a sua localização…';
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var eu = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        buscarLugares({ lat: eu.lat, lng: eu.lng }, eu);
+      }, function (e) {
+        var c = e && e.code;
+        if (c === 1) falhou('A localização está bloqueada para este site. Para liberar no Chrome do Android: toque no ícone ao lado do endereço (cadeado ou ajustes) > Permissões > Local > Permitir, e recarregue a página.');
+        else if (c === 3) falhou('A localização demorou demais para chegar (tempo esgotado).');
+        else falhou('Não deu para obter a localização: a Localização do Android pode estar desligada ou sem sinal. Ligue em Configurações > Local.');
+      }, { enableHighAccuracy: false, timeout: 30000, maximumAge: 600000 });
+    }
+    function agoraHHMM() { var d = new Date(); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
     function hojeTexto() { var hj = U.hoje(), am = U.somaDias(hj, 1); return U.DIAS[U.dowIso(hj)] + ', ' + hj.slice(8, 10) + '/' + hj.slice(5, 7) + '/' + hj.slice(0, 4) + ' (' + hj + '); amanhã é ' + U.DIAS[U.dowIso(am)] + ', ' + am.slice(8, 10) + '/' + am.slice(5, 7) + ' (' + am + ')'; }
     function responderLocal(txt) { conversa.push({ papel: 'assistant', texto: txt, local: true }); }
     /* rapida=true: pergunta pronta, respondida 100% pelo app, sem modelo */
     function enviar(texto, rapida) {
       texto = String(texto || '').trim(); if (!texto || enviando) return;
+      var memo = G ? G.memoria(conversa) : [];
       conversa.push({ papel: 'user', texto: texto }); campo.value = '';
-      var hj = U.hoje(), q = C.classificar(texto, hj), fechada = q ? C.responder(q, dadosConsulta()) : null;
-      /* consultas reconhecidas (tarefas, contas, agenda) são respondidas SEMPRE pelo app, sem modelo */
-      if (fechada) { responderLocal(fechada.texto); desenhar(); return; }
+      if (C.pedeRestaurante(texto) && !C.pedeCriar(texto)) return restaurantes();
+      if (/^o que falta comprar\??$/i.test(texto)) { var fc = (S.get().compras || []).filter(function (c) { return !c.exemplo && !c.comprado; }); responderLocal(fc.length ? 'Falta comprar (' + fc.length + '): ' + fc.map(function (c) { return c.nome; }).join(', ') + '.' : 'A Lista de compras está vazia.'); return desenhar(); }
+      if (/^quais tarefas est[aã]o atrasadas\??$/i.test(texto)) { var hj0 = U.hoje(), ta = (S.get().tarefas || []).filter(function (t) { return !t.exemplo && !t.feita && t.vence && t.vence < hj0; }); responderLocal(ta.length ? 'Tarefas atrasadas (' + ta.length + '):\n' + ta.map(function (t) { return '• ' + t.titulo + ' (prazo ' + t.vence.slice(8, 10) + '/' + t.vence.slice(5, 7) + ')'; }).join('\n') : 'Nenhuma tarefa atrasada.'); return desenhar(); }
+      var vazio = C.pedidoVazio(texto);
+      if (vazio) {
+        var rot = { tarefa: 'nova tarefa', compromisso: 'novo compromisso', conta: 'nova conta' }[vazio];
+        var msgF = { papel: 'assistant', texto: 'Abri o formulário de ' + rot + '. Preencha e salve.', local: true, form: vazio };
+        conversa.push(msgF); desenhar();
+        abrirForm(vazio, function (m) { msgF.texto = m + '.'; desenhar(); });
+        return;
+      }
+      var hj = U.hoje(), q = C.pedeCriar(texto) ? null : C.classificar(texto, hj), fechada = q ? C.responder(q, dadosConsulta()) : null;
+      if (fechada && (rapida || C.soLocal(q) || !fechada.itens.length)) { responderLocal(fechada.texto); desenhar(); return; }
       enviando = true; desenhar();
+      if (G && !fechada) return viaGemini(texto, memo, viaLiquid);
+      viaLiquid();
+      function viaLiquid() {
       var ctx = fechada ? 'LISTA FECHADA (estes são TODOS os itens; reformule só esta lista, não acrescente nada):\n' + fechada.texto : contexto();
       var permitido = fechada ? fechada.permitido : C.permitidoResposta(ctx, texto, hj);
       var hist = fechada ? [{ papel: 'user', texto: texto }] : conversa.filter(function (m) { return !m.local; }).slice(-10).map(function (m) { return { papel: m.papel, texto: m.texto.slice(0, 4000) }; });
@@ -195,48 +246,18 @@
         .then(function (r) { return r.json().catch(function () { return { erro: 'Resposta inválida.' }; }); })
         .then(function (j) {
           if (j && j.resposta) {
-            var p = separar(C.limpar(j.resposta), C.pedeCriar(texto));
-            if (fechada) { if (p.texto && C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto }); else responderLocal(fechada.texto); }
-            else if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: C.textoFinal(p.texto, p.sugestao ? 'Posso anotar isto:' : ''), sugestao: p.sugestao });
+            var p = separar(C.textoFinal(C.limpar(j.resposta), texto), texto);
+            if (p.recusadas && !p.sugestoes.length && !fechada) { responderLocal('Não sugeri nada porque o título não veio do seu pedido. Diga o que quer criar, por exemplo: crie uma tarefa pagar a luz até 10/11.'); return; }
+            if (fechada) { if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || fechada.texto }); else responderLocal(fechada.texto); }
+            else if (C.fiel(p.texto, permitido)) conversa.push({ papel: 'assistant', texto: p.texto || (p.sugestoes.length ? 'Posso adicionar isto:' : C.SEM_RESPOSTA), sugestoes: p.sugestoes });
             else responderLocal('Não encontrei isso nos dados do app. Pergunte, por exemplo, o que vence essa semana ou o que tem na agenda amanhã.');
           }
           else conversa.push({ papel: 'assistant', texto: 'Não consegui responder: ' + ((j && j.erro) || 'erro desconhecido') });
         })
-        .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: (navigator.onLine === false ? 'Você está sem internet agora. Conecte e tente de novo.' : 'Não consegui falar com o ajudante (servidor indisponível ou bloqueio de rede). Tente de novo.') }); })
+        .catch(function () { if (fechada) responderLocal(fechada.texto); else conversa.push({ papel: 'assistant', texto: 'Sem conexão com o ajudante agora. Tente de novo quando estiver online.' }); })
         .then(function () { enviando = false; desenhar(); campo.focus(); });
+      }
     }
-    /* câmera (capture) e galeria/prints (sem capture: no celular, capture abre só a câmera) */
-    var arquivo = h('input', { type: 'file', accept: 'image/*', capture: 'environment', class: 'ass-arquivo', id: 'ass-foto', 'data-fid': 'ass-foto', 'aria-label': 'Tirar foto de boleto, comprovante, convite, lista ou cupom' });
-    var galeria = h('input', { type: 'file', accept: 'image/*', class: 'ass-arquivo', id: 'ass-print', 'data-fid': 'ass-print', 'aria-label': 'Escolher print ou imagem da galeria' });
-    function lerArquivo(inp) {
-      var f = inp.files && inp.files[0]; inp.value = '';
-      if (!f || enviando) return;
-      enviando = true; status.textContent = 'Reduzindo a imagem…';
-      conversa.push({ papel: 'user', texto: 'Foto/print enviado para leitura (a imagem não é guardada).' }); desenhar(); status.textContent = 'Lendo a imagem…';
-      reduzir(f, function (erro, url) {
-        if (erro) { conversa.push({ papel: 'assistant', texto: erro }); enviando = false; desenhar(); return; }
-        var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, abortou = false, st = 0;
-        var tm = setTimeout(function () { abortou = true; if (ctl) ctl.abort(); }, 60000);
-        status.textContent = 'Lendo a imagem…';
-        fetch(URL_LER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imagem: url, hoje: U.hoje() }), signal: ctl ? ctl.signal : undefined })
-          .then(function (r) { st = r.status; return r.json().catch(function () { return null; }); })
-          .then(function (j) {
-            url = ''; clearTimeout(tm);
-            if (abortou) { conversa.push({ papel: 'assistant', texto: erroLeitura(0, null, true) }); return; }
-            if (!j || !j.leitura) { conversa.push({ papel: 'assistant', texto: erroLeitura(st, j, false) }); return; }
-            var abertas = [], st2 = S.get(), ex = {}; (st2.contas || []).forEach(function (c) { if (c.exemplo) ex[c.id] = 1; });
-            try { abertas = PS.fin.listas(st2, U.hoje()).abertas.filter(function (x) { return !ex[x.id]; }); } catch (e) { abertas = []; }
-            var sugs = PS.leitura.normalizar(j.leitura, U.hoje(), abertas);
-            conversa.push({ papel: 'assistant', texto: sugs.length ? 'Li a imagem. Confira e confirme o que deve ir para o app:' : 'Não reconheci esse documento. Tente boleto, comprovante, convite, acordo, lista ou cupom fiscal.', leituras: sugs });
-          })
-          .catch(function () { clearTimeout(tm); conversa.push({ papel: 'assistant', texto: erroLeitura(0, null, abortou) }); })
-          .then(function () { enviando = false; desenhar(); });
-      });
-    }
-    arquivo.addEventListener('change', function () { lerArquivo(arquivo); });
-    galeria.addEventListener('change', function () { lerArquivo(galeria); });
-    var btnFoto = h('label', { class: 'btn ass-btn-foto', for: 'ass-foto', 'data-fid': 'ass-btn-foto' }, I('camera'), h('span', null, 'Tirar foto'));
-    var btnPrint = h('label', { class: 'btn ass-btn-foto', for: 'ass-print', 'data-fid': 'ass-btn-print' }, I('enviar'), h('span', null, 'Ler print ou imagem'));
     /* entrada por voz (Web Speech API, pt-BR): o texto aparece no campo e é enviado quando a escuta termina */
     var Reconhecer = g.SpeechRecognition || g.webkitSpeechRecognition, rec = null, ouvindo = false;
     var mic = Reconhecer ? h('button', { class: 'btn btn-mic', type: 'button', 'data-fid': 'ass-voz', 'aria-label': 'Falar a pergunta', 'aria-pressed': 'false', onclick: function () { if (ouvindo) { if (rec) rec.stop(); } else ouvir(); } }, I('microfone'), h('span', { class: 'mic-rot' }, 'Falar')) : null;
@@ -256,19 +277,35 @@
       marcarOuvindo(true);
       try { rec.start(); } catch (e) { marcarOuvindo(false); }
     }
+    /* foto na conversa: a imagem vai para /foto, a resposta vira mensagem com confirmar/editar; a foto é descartada */
+    var fotoCb = {
+      inicio: function () { fotoBox.hidden = true; conversa.push({ papel: 'user', texto: 'Enviei uma foto.', local: true }); enviando = true; status.textContent = 'Lendo a imagem…'; desenhar(); },
+      sucesso: function (c) { enviando = false; status.textContent = ''; conversa.push({ papel: 'assistant', texto: PS.fotoNucleo.resumo(c), foto: { c: c }, local: true }); desenhar(); },
+      erro: function (msg) { enviando = false; status.textContent = ''; conversa.push({ papel: 'assistant', texto: 'Não consegui ler a imagem. ' + msg, local: true }); desenhar(); }
+    };
+    var fotoBox = h('div', { class: 'acoes ft-acoes', 'data-fid': 'ass-foto-opcoes', hidden: 'hidden' }, PS.foto ? PS.foto.botao(fotoCb) : []);
     var form = h('form', { class: 'ass-form', onsubmit: function (e) { e.preventDefault(); enviar(campo.value); } },
-      h('label', { class: 'campo', 'for': 'ass-pergunta' }, h('span', null, 'Sua pergunta')), h('div', { class: 'ass-linha-campo' }, campo, mic), h('div', { class: 'acoes' }, btn, arquivo, btnFoto, galeria, btnPrint,
-        h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-limpar', onclick: function () { conversa = []; desenhar(); } }, 'Limpar conversa')));
+      h('label', { class: 'campo', 'for': 'ass-pergunta' }, h('span', null, 'Sua pergunta')), h('div', { class: 'ass-linha-campo' }, campo, mic), h('div', { class: 'acoes' }, btn,
+        h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-foto', 'aria-expanded': 'false', onclick: function () { var ab = fotoBox.hidden; fotoBox.hidden = !ab; this.setAttribute('aria-expanded', ab ? 'true' : 'false'); } }, I('camera'), 'Foto'),
+        h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-limpar', onclick: function () { conversa = []; desenhar(); } }, 'Limpar conversa')), fotoBox);
     campo.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(campo.value); } });
-    var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Perguntas rápidas' },
-      ['O que vence essa semana?', 'Tem conta atrasada?', 'Quais tarefas são prioridade alta?', 'O que tenho na agenda amanhã?', 'Quais são minhas tarefas?'].map(function (q, i) {
-        return h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(q, true); } }, q);
-      }));
-    raiz.appendChild(h('section', { class: 'cartao' }, h('h2', null, I('estrela'), h('span', null, 'Ajudante da casa')), h('p', { class: 'ass-intro' }, 'Oi! Sou o ajudante geral do app. Posso ajudar com contas e vencimentos, agenda, tarefas e lembretes: pergunte o que vence, o que está atrasado ou o que tem para amanhã. Também leio foto ou print de boleto, comprovante, acordo, convite, lista ou cupom fiscal. Se você pedir para anotar algo, eu sugiro e você confirma antes de gravar.'), atalhos, lista, status, form,
-      h('p', { class: 'ass-nota' }, 'Usa o modelo LFM3-1.7B da Liquid AI. Um resumo de contas, tarefas e agenda sai deste aparelho só quando você pergunta; faturas detalhadas e cartões não são enviados. Fotos e prints são lidos pelo LFM3-VL-2B: a imagem é reduzida neste aparelho, enviada só para a leitura e não é guardada. Respostas podem errar: confira antes de pagar.')));
+    var atalhos = h('div', { class: 'ass-atalhos', role: 'group', 'aria-label': 'Sugestões' });
+    function montarAtalhos() {
+      U.limpar(atalhos);
+      var avCarro = (PS.carro ? PS.carro.avisos() : []).slice(0, 1);
+      avCarro.forEach(function (v, i) {
+        atalhos.appendChild(h('button', { class: 'btn ativo', type: 'button', 'data-fid': 'ass-carro-' + i, onclick: function () { g.location.hash = '#/carro'; } }, I('carro'), 'Carro: ' + v.rotulo + (v.dias === 0 ? ' vence hoje' : ' vence em ' + v.dias + (v.dias === 1 ? ' dia' : ' dias'))));
+      });
+      C.sugestoesDinamicas(dadosConsulta(), U.hoje(), new Date().getHours(), S.get().compras || []).slice(avCarro.length ? 1 : 0).forEach(function (x, i) {
+        atalhos.appendChild(h('button', { class: 'btn', type: 'button', 'data-fid': 'ass-rapida-' + i, onclick: function () { enviar(x.pergunta, x.tipo === 'consulta'); montarAtalhos(); } }, x.rotulo));
+      });
+    }
+    montarAtalhos();
+    raiz.appendChild(h('section', { class: 'cartao' }, h('h2', null, I('estrela'), h('span', null, 'Ajudante da casa')), h('p', { class: 'ass-intro' }, 'Oi! Sou o ajudante geral do app. Posso ajudar com contas e vencimentos, agenda e tarefas: pergunte o que vence, o que está atrasado ou o que tem para amanhã. Se você pedir para anotar algo, eu sugiro e você confirma antes de gravar.'), atalhos, lista, status, form,
+      h('p', { class: 'ass-nota' }, 'As conversas usam o Gemini (Google, plano gratuito: o Google pode usar o que é enviado para melhorar os modelos); se ele falhar, o LFM3-1.7B da Liquid AI responde. Restaurantes usam a sua localização só quando você pede. Um resumo de contas, tarefas e agenda sai deste aparelho só quando você pergunta; faturas detalhadas e cartões não são enviados. Respostas podem errar: confira antes de pagar.')));
     desenhar();
     return raiz;
   }
   PS.views.assistente = { reativo: false, titulo: 'Ajudante', render: render };
-  PS.assistente = { contexto: contexto, separar: separar, gravarLeitura: gravarLeitura };
+  PS.assistente = { contexto: contexto, separar: separar };
 })(window);

@@ -12,7 +12,7 @@ base = 'http://127.0.0.1:%d/index.html' % httpd.server_address[1]
 ok, falhas = [], []
 def check(c, m): (ok if c else falhas).append(m); print(('  ok   ' if c else '  FALHA ') + m)
 TEXTO = 'Comprar arroz e pão 1234567 Rr Menu'
-NOVOS = [('tarefas', 'Nova tarefa', 'tarefas', 'titulo'), ('habitos', 'Novo hábito', 'habitos', 'nome'), ('agenda', 'Novo compromisso', 'compromissos', 'titulo')]
+NOVOS = [('tarefas', 'Nova tarefa', 'tarefas', 'titulo'), ('agenda', 'Novo compromisso', 'compromissos', 'titulo')]
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=a.chrome) if a.chrome else p.chromium.launch()
     for vp in [(390, 844), (1280, 800)]:
