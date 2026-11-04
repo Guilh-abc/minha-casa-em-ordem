@@ -40,7 +40,7 @@ with sync_playwright() as p:
         t = L('nt:c:nb').inner_text()
         check('R$ 160,00 (soma)' in t and '16 itens' in t, '[%d] compra com total 0 mostra a soma dos itens, marcada: %r' % (w, t))
         check('sem valor' in L('nt:c:nz').inner_text(), '[%d] compra sem valor nenhum pede correção' % w)
-        check('R$ 160,00' in L('nt:total-mes').inner_text(), '[%d] total do mês não fica em 0: %r' % (w, L('nt:total-mes').inner_text()))
+        check('R$ 160,00' in pg.locator('.nt-mes-item summary').first.inner_text(), '[%d] total do mês não fica em 0: %r' % (w, pg.locator('.nt-mes-item summary').first.inner_text()))
         L('nt:c:nb').click(); pg.wait_for_timeout(200)
         check('total da nota não lido' in L('nt:detalhe').inner_text(), '[%d] detalhe avisa que o total não foi lido' % w)
         pg.locator('.modal button', has_text='Editar').click(); pg.wait_for_timeout(200)

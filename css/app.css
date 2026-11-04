@@ -646,3 +646,13 @@ html.contraste .btn { background: var(--c-superficie-2); border: 2px solid var(-
 .concluidas .item { opacity: .7; }
 /* Ajudante em Solid Glass: brilho de vidro por cima do magenta */
 .btn-ajudante { -webkit-backdrop-filter: var(--glass-blur-control); backdrop-filter: var(--glass-blur-control); }
+
+/* Compras feitas: visão mês a mês */
+.nt-meses { display: flex; flex-direction: column; gap: .4rem; margin-top: .4rem; }
+.nt-mes-item > summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 .6rem; min-height: 44px; padding: .4rem .7rem; border-radius: .7rem; background: var(--glass-control); box-shadow: var(--glass-sombra-ctrl); }
+.nt-mes-item > summary::-webkit-details-marker { display: none; }
+.nt-mes-item > summary small { grid-column: 1 / -1; color: var(--c-texto-2); font-size: .7em; }
+.nt-mes-nome::before { content: "▸ "; }
+.nt-mes-item[open] .nt-mes-nome::before { content: "▾ "; }
+.nt-mes-item[open] > summary { box-shadow: var(--glass-sombra-ctrl), inset 0 0 0 2px var(--c-magenta); }
+.nt-mes-item > ul { margin-top: .35rem; }

@@ -124,5 +124,11 @@
     var v = {}; (lista || []).forEach(function (c) { var k = String(c.data || '').slice(0, 7); if (/^\d{4}-\d{2}$/.test(k)) v[k] = 1; });
     return Object.keys(v).sort().reverse();
   }
-  return { valor: valor, qtd: qtd, data: data, brl: brl, normalizar: normalizar, conferir: conferir, somaItens: somaItens, totalDe: totalDe, anexar: anexar, linhaItem: linhaItem, semValor: semValor, juntar: juntar, resumoMes: resumoMes, meses: meses };
+  /* Visão mês a mês: só meses com compras, do mais recente ao mais antigo, com total e nº de notas; total geral = soma dos meses. */
+  function consolidado(lista) {
+    var ms = meses(lista).map(function (ym) { var r = resumoMes(lista, ym); r.ym = ym; return r; });
+    var tot = 0, n = 0; ms.forEach(function (m) { tot += m.total; n += m.n; });
+    return { meses: ms, total: cent(tot), n: n };
+  }
+  return { consolidado: consolidado, valor: valor, qtd: qtd, data: data, brl: brl, normalizar: normalizar, conferir: conferir, somaItens: somaItens, totalDe: totalDe, anexar: anexar, linhaItem: linhaItem, semValor: semValor, juntar: juntar, resumoMes: resumoMes, meses: meses };
 });
