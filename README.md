@@ -68,3 +68,7 @@ Publicação: push em `main` publica o GitHub Pages (raiz do repositório; o tok
 - Não há app de TV/APK: foi descontinuado (o código antigo e o `painel.apk` foram removidos do repositório; versões antigas seguem nas *Releases*).
 
 byGui
+
+## Créditos
+
+Visual "vidro sólido" da barra de ícones, dos botões e do logo inspirado em [Solid Glass](https://github.com/deeplethe/solid-glass) (licença MIT, © 2026 DeepLethe), reproduzido em CSS puro (`css/tokens.css`, `css/base.css`, `css/app.css`), sem código copiado como dependência.

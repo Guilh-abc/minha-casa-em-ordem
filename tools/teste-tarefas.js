@@ -46,4 +46,21 @@ t('mover não altera nada além de vence', function () {
   assert.strictEqual(JSON.stringify(Object.assign({}, x, { vence: 'Z' })), antes);
   assert.strictEqual(D.moverTarefa(x, 'atrasadas', QUI), false); assert.strictEqual(x.vence, QUI);
 });
+t('lista: concluídas saem das ativas (comuns e ocorrência de recorrente), mais recente primeiro', function () {
+  var ts = [tf({ id: 'a', vence: '2026-11-06', feita: true, repete: 'mensal', gerou: 'b' }), tf({ id: 'b', vence: '2026-12-06', repete: 'mensal' }),
+    tf({ id: 'c', vence: '2026-11-01', feita: true }), tf({ id: 'd', vence: '' })];
+  var sep = D.separarTarefas(ts);
+  assert.deepStrictEqual(sep.ativas.map(function (x) { return x.id; }), ['b', 'd']);
+  assert.deepStrictEqual(sep.concluidas.map(function (x) { return x.id; }), ['a', 'c']);
+  assert.ok(sep.ativas.every(function (x) { return !x.feita; }));
+  assert.ok(D.quadroPrazo(ts, QUI).every(function (c) { return c.itens.every(function (x) { return !x.feita; }); }));
+});
+t('recorrente: concluir gera a próxima e a concluída vai para Concluídas', function () {
+  require('../js/repeticao.js');
+  var R = global.PS.rep, n = 0, l = [tf({ id: 'r1', vence: '2026-11-06', repete: 'mensal' })];
+  R.concluirTarefa(l, l[0], QUI, function () { return 'r' + (++n + 1); });
+  var sep = D.separarTarefas(l);
+  assert.strictEqual(sep.ativas.length, 1); assert.strictEqual(sep.ativas[0].vence, '2026-12-06');
+  assert.deepStrictEqual(sep.concluidas.map(function (x) { return x.id; }), ['r1']);
+});
 console.log('\n' + ok + ' ok, ' + falhas + ' falhas'); process.exit(falhas ? 1 : 0);

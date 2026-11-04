@@ -635,3 +635,14 @@ html.contraste .btn { background: var(--c-superficie-2); border: 2px solid var(-
 .car-check { flex-direction: row; align-items: center; gap: 10px; min-height: 44px; }
 .car-check input { width: 24px; height: 24px; }
 .car-alerta-txt { font-weight: 600; color: var(--c-perigo); }
+
+/* Tarefas: concluídas recolhidas no fim da lista, discretas (sem destaque de foco) */
+.concluidas { margin-top: .6rem; }
+.concluidas > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: .4rem; min-height: 44px; padding: .3rem .7rem; border-radius: .7rem; color: var(--c-texto-2); font-weight: 700; background: var(--glass-control); box-shadow: var(--glass-sombra-ctrl); }
+.concluidas > summary::-webkit-details-marker { display: none; }
+.concluidas > summary::before { content: "▸"; transition: transform .15s; }
+.concluidas[open] > summary::before { transform: rotate(90deg); }
+.concluidas > summary small { font-weight: 600; opacity: .8; }
+.concluidas .item { opacity: .7; }
+/* Ajudante em Solid Glass: brilho de vidro por cima do magenta */
+.btn-ajudante { -webkit-backdrop-filter: var(--glass-blur-control); backdrop-filter: var(--glass-blur-control); }

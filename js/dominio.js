@@ -106,7 +106,13 @@
     s.tarefas.forEach(function (t) { if (nomes.indexOf(t.lista) < 0) nomes.push(t.lista); });
     return nomes;
   }
+  /* Lista de tarefas: ativas (pendentes) separadas das concluídas; a ocorrência concluída de uma recorrente vai para Concluídas, mais recente primeiro. */
+  function separarTarefas(l) {
+    var ativas = ordenarTarefas(l.filter(function (t) { return !t.feita; }));
+    var concl = l.filter(function (t) { return t.feita; }).sort(function (a, b) { return (b.vence || '') < (a.vence || '') ? -1 : (b.vence || '') > (a.vence || '') ? 1 : 0; });
+    return { ativas: ativas, concluidas: concl };
+  }
   function saudacao(h) { return h < 5 ? 'Boa madrugada' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
 
-  PS.dom = { itensDoDia: itensDoDia, ocorrenciaVisivel: ocorrenciaVisivel, ocorrenciasConta: ocorrenciasConta, aVencer: aVencer, ordenarCompromissos: ordenarCompromissos, proximosCompromissos: proximosCompromissos, ordenarTarefas: ordenarTarefas, tarefasDoDia: tarefasDoDia, fraseDoDia: fraseDoDia, listasComTarefas: listasComTarefas, saudacao: saudacao, ROTULO_PRIO: ROTULO_PRIO, COLUNAS_PRAZO: COLUNAS, fimDaSemana: fimDaSemana, colunaPrazo: colunaPrazo, quadroPrazo: quadroPrazo, dataDaColuna: dataDaColuna, moverTarefa: moverTarefa };
+  PS.dom = { separarTarefas: separarTarefas, itensDoDia: itensDoDia, ocorrenciaVisivel: ocorrenciaVisivel, ocorrenciasConta: ocorrenciasConta, aVencer: aVencer, ordenarCompromissos: ordenarCompromissos, proximosCompromissos: proximosCompromissos, ordenarTarefas: ordenarTarefas, tarefasDoDia: tarefasDoDia, fraseDoDia: fraseDoDia, listasComTarefas: listasComTarefas, saudacao: saudacao, ROTULO_PRIO: ROTULO_PRIO, COLUNAS_PRAZO: COLUNAS, fimDaSemana: fimDaSemana, colunaPrazo: colunaPrazo, quadroPrazo: quadroPrazo, dataDaColuna: dataDaColuna, moverTarefa: moverTarefa };
 })(window);

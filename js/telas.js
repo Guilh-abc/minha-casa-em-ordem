@@ -73,7 +73,7 @@
   } };
 
   /* ---------- TAREFAS ---------- */
-  var TODOS = '__todos', modoTarefas = 'lista';
+  var TODOS = '__todos', modoTarefas = 'lista', concluidasAberta = false;
   function seloPrio(p) { return selo(p === 'alta' ? 'perigo' : p === 'media' ? 'aviso' : 'neutro', p === 'alta' ? 'alerta' : 'estrela', D.ROTULO_PRIO[p]); }
   function tagLista(t) { return h('span', { class: 'tag-lista' }, t.lista); }
   function alternarFeita(id) { S.alterar(function (st) { st.tarefas.slice().forEach(function (x) { if (x.id === id) { if (x.feita) x.feita = false; else PS.rep.concluirTarefa(st.tarefas, x, U.hoje(), U.uid); } }); }); }
@@ -108,10 +108,10 @@
       return col;
     }));
   }
-  views.tarefas = { reativo: true, titulo: 'Tarefas', render: function () {
+  views.tarefas = { reativo: true, titulo: 'Tarefas', aoEntrar: function () { listaAtual = TODOS; concluidasAberta = false; }, render: function () {
     var s = S.get(), hoje = U.hoje(), nomes = D.listasComTarefas(s);
-    if (PS.focarLista) { listaAtual = PS.focarLista; PS.focarLista = null; }   /* tarefa recém-criada pela foto ou Ajudante: abre a lista dela */
-    if (!listaAtual || (listaAtual !== TODOS && nomes.indexOf(listaAtual) < 0)) listaAtual = nomes[0] || TODOS;
+    PS.focarLista = null;   /* filtro sempre em Todos: a tarefa recém-criada já aparece ali */
+    if (!listaAtual || (listaAtual !== TODOS && nomes.indexOf(listaAtual) < 0)) listaAtual = TODOS;   /* filtro inicial: sempre Todos */
     var todos = listaAtual === TODOS;
     function aba(id, rot, pend) {
       return h('button', { class: 'aba', type: 'button', role: 'tab', 'aria-selected': id === listaAtual ? 'true' : 'false', 'data-fid': 'aba:' + id, onclick: function () { listaAtual = id; PS.redesenhar(); } }, rot, h('small', null, pend));
@@ -125,12 +125,19 @@
     var corpo;
     if (modoTarefas === 'quadro') corpo = [quadro(s, hoje, todos ? '' : listaAtual), h('p', { class: 'nota' }, 'Arraste um cartão para outra coluna ou use "Mover para". Hoje = hoje; Esta semana = domingo; Depois = daqui a 14 dias; Sem data = tira o prazo. Concluídas ficam na Lista.')];
     else {
-      var ts = D.ordenarTarefas(s.tarefas.filter(function (t) { return todos || t.lista === listaAtual; }));
-      corpo = ts.length ? ts.map(function (t) {
+      var sep = D.separarTarefas(s.tarefas.filter(function (t) { return todos || t.lista === listaAtual; }));
+      var linhaT = function (t) {
         var venc = t.vence ? (t.feita ? selo('neutro', 'calendario', U.dataCurta(t.vence)) : seloVenc('', t.vence, hoje, false)) : null;
         return h('button', { class: 'item tarefa' + (t.feita ? ' feito' : ''), type: 'button', role: 'checkbox', 'aria-checked': t.feita ? 'true' : 'false', 'data-fid': 'tr:' + t.id, onclick: function () { alternarFeita(t.id); } },
           caixa(t.feita), h('span', { class: 't' }, t.titulo, tagExemplo(t), todos ? tagLista(t) : null, tagPor(t)), seloPrio(t.prio), venc);
-      }) : h('p', { class: 'vazio' }, 'Lista vazia. Adicione tarefas em Gerenciar → Tarefas.');
+      };
+      corpo = [sep.ativas.length ? sep.ativas.map(linhaT) : h('p', { class: 'vazio' }, sep.concluidas.length ? 'Tudo concluído por aqui!' : 'Lista vazia. Adicione tarefas em Gerenciar → Tarefas.')];
+      if (sep.concluidas.length) {
+        var det = h('details', { class: 'concluidas', 'data-fid': 'concluidas' }, h('summary', null, 'Concluídas', h('small', null, String(sep.concluidas.length))), sep.concluidas.slice(0, 50).map(linhaT));
+        if (concluidasAberta) det.open = true;
+        det.addEventListener('toggle', function () { concluidasAberta = det.open; });
+        corpo.push(det);
+      }
     }
     return h('div', null, h('h1', { class: 'titulo-tela' }, 'Tarefas'),
       h('div', { class: 'tarefas-topo' }, h('div', { class: 'abas', role: 'tablist' }, abas), modos), corpo);

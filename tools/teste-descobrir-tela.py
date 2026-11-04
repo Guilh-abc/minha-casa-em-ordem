@@ -51,7 +51,7 @@ with sync_playwright() as p:
             bb = pg.locator('[data-fid="%s"]' % f).bounding_box(); check(bb['height'] >= 44 and bb['width'] >= 44, '%d botão %s >=44px' % (w, f))
         def menu_ok(rot):
             r = pg.evaluate("(() => { const m = document.querySelector('.menu'); if (!m || getComputedStyle(m).position !== 'fixed') return null; const b = m.getBoundingClientRect(); return [b.bottom, innerHeight, b.top]; })()")
-            if w < 800: check(r and abs(r[0] - r[1]) <= 1, '%d menu fixo no rodapé %s %s' % (w, rot, r))
+            if w < 800: check(r and 0 <= r[1] - r[0] <= 6, '%d menu fixo no rodapé (faixa flutuante a 4px da borda) %s %s' % (w, rot, r))
             return r
         for noite in (False, True):
             pg.evaluate('document.documentElement.classList.toggle("noite", %s)' % ('true' if noite else 'false'))

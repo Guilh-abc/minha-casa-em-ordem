@@ -58,6 +58,7 @@
     atualizarMenu();
     if (!mudou && !primeira) return;
     principal().scrollTop = 0;
+    var vv = PS.views[viewAtual]; if (vv && vv.aoEntrar) vv.aoEntrar();   /* ex.: Tarefas sempre abre em Todos */
     desenhar(false);
     if (primeira || !doMenu) PS.nav.focarPrimeiro();
     else if (doMenu) { /* mantém no menu para trocar de tela com ◀ ▶ */ }
